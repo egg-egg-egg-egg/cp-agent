@@ -25,8 +25,15 @@ config.yaml
 # ─── Large data files (download separately) ───
 problem_data/
 
-# ─── Generated problems (optional, uncomment to exclude) ───
-# problems/
+# ─── Generated problems (example_sum kept as reference) ───
+problems/*
+!problems/example_sum/
+problems/example_sum/bin/
+problems/failed/
+
+# ─── Archives & batch state ───
+*.zip
+batch_checkpoint.json
 
 # ─── Logs ───
 *.log
