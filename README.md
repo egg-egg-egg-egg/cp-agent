@@ -12,6 +12,7 @@
 - 🎯 **多难度支持**：Codeforces 分数制 800-3000，共 23 档难度
 - 🌐 **丰富算法考点**：DP、图论、树、贪心、数据结构、数学等 20+ 算法方向
 - 🔍 **原题查重**：内置 24000+ 题库（Codeforces + 洛谷），hybrid 检索召回 + 独立 LLM 裁判判定"是否同一题目模型"，判撞题即强制换题
+- 🖥️ **桌面客户端**：PySide6 原生 GUI（`python gui.py`）——生成面板（实时日志/可中断）、题库浏览（题面渲染/元数据/失败归档）、一键导出与重跑、查重搜索
 
 ## 环境配置
 
@@ -56,6 +57,9 @@ python main.py --topic dp --difficulty 1800 --export-after all   # 生成成功�
 # 批量生成（断点续跑，结果以每题 result.json 为准）
 python batch_generate.py --limit 2      # 冒烟测试：只跑 2 题
 python batch_generate.py                # 全量
+
+# 桌面客户端（需先 pip install -e ".[gui]"）
+python gui.py
 
 # 查看可用算法主题
 python main.py --list-topics
