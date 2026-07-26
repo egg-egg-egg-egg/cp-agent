@@ -80,11 +80,52 @@ def _list_dir(dir_path: Path) -> list[str]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TOOL REGISTRY — schema 与实现在同一处声明，TOOLS 列表与分发都由注册表生成
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_TOOL_REGISTRY: dict[str, dict] = {}
+
+
+def tool(name: str, description: str, input_schema: dict):
+    """
+    注册一个沙盒工具。schema（暴露给 LLM）与实现函数声明在一起，
+    避免 schema / 分发 / 函数签名三处漂移。
+
+    分发是泛型的：LLM 传来的 args 按函数签名过滤后作为 kwargs 调用，
+    因此签名里可以存在 schema 未暴露的"隐藏参数"（如 run_solution 的
+    timeout_sec、write_metadata 的 provider），由 tool_defaults 注入。
+    """
+    def deco(fn):
+        _TOOL_REGISTRY[name] = {
+            "fn_name": fn.__name__,
+            "description": description,
+            "input_schema": input_schema,
+        }
+        return fn
+    return deco
+
+
+def tool_schemas() -> list[dict]:
+    """注册表导出的 LLM 工具定义（Anthropic 风格，注册顺序即列表顺序）。"""
+    return [
+        {"name": name, "description": e["description"], "input_schema": e["input_schema"]}
+        for name, e in _TOOL_REGISTRY.items()
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # TOOL FUNCTIONS — 每个 tool 返回 dict，适配 LLM tool_result
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ─── 1. read_file ────────────────────────────────────────────────────────────
 
+@tool("read_file", "读取文件内容。路径必须是相对路径（沙盒限制在 problem 目录内）。", {
+    "type": "object",
+    "properties": {
+        "path": {"type": "string", "description": "相对路径，如 solution.cpp 或 inputs/01.in"}
+    },
+    "required": ["path"]
+})
 def tool_read_file(problem_dir: Path, path: str, max_lines: int = 500,
                    max_chars: int = 20000) -> dict:
     """读取文件内容。返回 {success, content, path}"""
@@ -112,6 +153,14 @@ def tool_read_file(problem_dir: Path, path: str, max_lines: int = 500,
 
 # ─── 2. write_file ───────────────────────────────────────────────────────────
 
+@tool("write_file", "创建或覆写文件。路径必须是相对路径。", {
+    "type": "object",
+    "properties": {
+        "path": {"type": "string", "description": "相对路径，如 solution.cpp"},
+        "content": {"type": "string", "description": "文件完整内容"}
+    },
+    "required": ["path", "content"]
+})
 def tool_write_file(problem_dir: Path, path: str, content: str) -> dict:
     """创建或覆写文件。返回 {success, message, path}"""
     resolved, err = _sandbox_resolve(problem_dir, path)
@@ -129,6 +178,15 @@ def tool_write_file(problem_dir: Path, path: str, content: str) -> dict:
 
 # ─── 3. edit_file ────────────────────────────────────────────────────────────
 
+@tool("edit_file", "搜索替换修改文件。old_text 必须与文件内容完全匹配（包括缩进和换行）。", {
+    "type": "object",
+    "properties": {
+        "path": {"type": "string", "description": "相对路径"},
+        "old_text": {"type": "string", "description": "要替换的原始文本（必须完全匹配）"},
+        "new_text": {"type": "string", "description": "替换后的新文本"}
+    },
+    "required": ["path", "old_text", "new_text"]
+})
 def tool_edit_file(problem_dir: Path, path: str,
                    old_text: str, new_text: str) -> dict:
     """搜索替换修改文件。返回 {success, message, path, replacements}"""
@@ -165,6 +223,12 @@ def tool_edit_file(problem_dir: Path, path: str,
 
 # ─── 4. list_files ───────────────────────────────────────────────────────────
 
+@tool("list_files", "列出目录内容（文件和子目录）。", {
+    "type": "object",
+    "properties": {
+        "dir": {"type": "string", "description": "相对路径，默认 '.'"}
+    },
+})
 def tool_list_files(problem_dir: Path, dir: str = ".") -> dict:
     """列出目录内容。返回 {success, files, path}"""
     resolved, err = _sandbox_resolve(problem_dir, dir)
@@ -182,6 +246,14 @@ def tool_list_files(problem_dir: Path, dir: str = ".") -> dict:
 
 # ─── 5. compile_cpp ──────────────────────────────────────────────────────────
 
+@tool("compile_cpp", "编译 C++ 文件。需要指定源文件和输出路径。输出路径通常为 bin/xxx。", {
+    "type": "object",
+    "properties": {
+        "source": {"type": "string", "description": "源文件相对路径，如 solution.cpp"},
+        "output": {"type": "string", "description": "输出二进制相对路径，如 bin/solution"}
+    },
+    "required": ["source", "output"]
+})
 def tool_compile_cpp(problem_dir: Path, source: str, output: str) -> dict:
     """编译 C++ 文件。返回 {success, message, source, output}"""
     src_resolved, err = _sandbox_resolve(problem_dir, source)
@@ -208,6 +280,12 @@ def tool_compile_cpp(problem_dir: Path, source: str, output: str) -> dict:
 
 # ─── 6. generate_test_data ───────────────────────────────────────────────────
 
+@tool("generate_test_data", "运行已编译的 generator 生成测试数据。generator 必须先编译为 bin/generator。", {
+    "type": "object",
+    "properties": {
+        "count": {"type": "integer", "description": "生成的测试数据数量，默认 30"}
+    },
+})
 def tool_generate_test_data(problem_dir: Path, count: int = 30) -> dict:
     """运行 generator 生成测试数据。返回 {success, message, files_created}"""
     gen_bin = problem_dir.resolve() / "bin" / "generator"
@@ -273,6 +351,10 @@ def _parse_bounds_log(text: str) -> dict:
     return result
 
 
+@tool("validate_inputs", "运行已编译的 validator 校验所有 inputs/*.in 文件，并统计每个约束的 min/max 边界是否被测试点触达。validator 必须先编译为 bin/validator。", {
+    "type": "object",
+    "properties": {},
+})
 def tool_validate_inputs(problem_dir: Path) -> dict:
     """
     运行 validator 校验所有输入。兼容两种 validator 约定：
@@ -356,6 +438,10 @@ def tool_validate_inputs(problem_dir: Path) -> dict:
 
 # ─── 8. run_solution ─────────────────────────────────────────────────────────
 
+@tool("run_solution", "运行已编译的 solution，为每个 inputs/*.in 生成对应的 outputs/*.out。solution 必须先编译为 bin/solution。", {
+    "type": "object",
+    "properties": {},
+})
 def tool_run_solution(problem_dir: Path, timeout_sec: Optional[int] = None) -> dict:
     """运行 solution 为每个输入生成输出。返回 {success, message, files_created, timeout_files}"""
     timeout_sec = timeout_sec or config.DEFAULT_SOLUTION_TIMEOUT_SEC
@@ -455,6 +541,12 @@ def _run_checker(problem_dir: Path, in_text: str, out_text: str,
     return verdict, stderr.strip()[:300]
 
 
+@tool("stress_test", "对拍验证：运行 generator 生成随机输入（自动附加 argv[3]='stress' 提示生成小数据），分别运行 solution 和 naive，比较输出。若已编译 bin/checker 则用 checker 判定（支持多解 SPJ 题），否则按 token 精确比对。solution 和 naive 必须先编译。", {
+    "type": "object",
+    "properties": {
+        "count": {"type": "integer", "description": "对拍轮数，默认 1000"}
+    },
+})
 def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
     """对拍 solution vs naive。返回 {success, message, iterations, mismatches}"""
     import time as _time
@@ -589,6 +681,19 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
 
 # ─── 10. write_metadata ──────────────────────────────────────────────────────
 
+@tool("write_metadata", "生成 problem.yaml 元数据文件。你提供标题、算法标签、难度和时限/内存限制；测试点列表和 checker 类型由系统扫描目录自动生成。必须在 stress_test 通过之后调用。", {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string", "description": "题目标题（中文）"},
+        "algorithm_tags": {"type": "array", "items": {"type": "string"},
+                           "description": "算法标签，如 ['动态规划', '前缀和']"},
+        "difficulty": {"type": "integer", "description": "Codeforces rating，如 1500"},
+        "time_limit_ms": {"type": "integer", "description": "时间限制（毫秒），默认 1000"},
+        "memory_limit_mb": {"type": "integer", "description": "内存限制（MB），默认 256"},
+        "subtasks": {"type": "array", "description": "可选：子任务列表 [{id, score, cases, constraints}]"}
+    },
+    "required": ["title", "algorithm_tags"]
+})
 def tool_write_metadata(problem_dir: Path, title: str, algorithm_tags: list,
                         difficulty: Optional[int] = None,
                         time_limit_ms: Optional[int] = None,
@@ -678,6 +783,10 @@ def _load_problem_yaml(problem_dir: Path) -> dict | None:
 
 # ─── 11. check_data_strength ─────────────────────────────────────────────────
 
+@tool("check_data_strength", "数据强度检查：在体积最大的几个测试点上运行 solution 和 naive。要求 solution 在时限内通过，且 naive 至少在一个大测试点上超时（或 ≥5× solution 耗时）。注意：这里 naive 超时是好事（说明数据能卡掉暴力）；全部轻松通过说明数据太弱，需要增大 generator 的最大规模。", {
+    "type": "object",
+    "properties": {},
+})
 def tool_check_data_strength(problem_dir: Path, top_n: int = 3) -> dict:
     """
     数据强度检查：在体积最大的 top_n 个测试点上，solution 必须在时限内通过，
@@ -781,6 +890,13 @@ def _extract_samples(problem_md: str) -> list[tuple[str, str]]:
     return samples
 
 
+@tool("final_check", "出题完成前的最终检查：必需文件齐全、inputs/outputs 与 problem.yaml 一致、题面样例与 solution 输出一致（SPJ 用 checker）、约束边界被测试点触达、数据强度通过。全部通过后自动回填 problem.yaml 的 validation 块。总结前必须通过此检查。", {
+    "type": "object",
+    "properties": {
+        "waive_bounds": {"type": "array", "items": {"type": "string"},
+                         "description": "显式豁免的未触达边界，如 ['a[i].max']，需有正当理由"}
+    },
+})
 def tool_final_check(problem_dir: Path, waive_bounds: Optional[list] = None) -> dict:
     """
     出题完成前的最终确定性检查：
@@ -920,37 +1036,25 @@ def tool_final_check(problem_dir: Path, waive_bounds: Optional[list] = None) -> 
 # web_search 不在此文件实现，因为它不需要沙盒，由 agent.py 直接处理。
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Tool dispatcher — 根据 tool name 调用对应函数
+# Tool dispatcher — 泛型分发：按注册表查函数、按函数签名过滤 LLM 传参
 # ═══════════════════════════════════════════════════════════════════════════════
 
-TOOL_DISPATCHER = {
-    "read_file":           lambda pd, args: tool_read_file(pd, args["path"]),
-    "write_file":          lambda pd, args: tool_write_file(pd, args["path"], args["content"]),
-    "edit_file":           lambda pd, args: tool_edit_file(pd, args["path"], args["old_text"], args["new_text"]),
-    "list_files":          lambda pd, args: tool_list_files(pd, args.get("dir", ".")),
-    "compile_cpp":         lambda pd, args: tool_compile_cpp(pd, args["source"], args["output"]),
-    "generate_test_data":  lambda pd, args: tool_generate_test_data(pd, args.get("count", 30)),
-    "validate_inputs":     lambda pd, args: tool_validate_inputs(pd),
-    "run_solution":        lambda pd, args: tool_run_solution(pd, timeout_sec=args.get("timeout_sec")),
-    "stress_test":         lambda pd, args: tool_stress_test(pd, args.get("count", 1000)),
-    "write_metadata":      lambda pd, args: tool_write_metadata(
-                               pd, args.get("title", ""), args.get("algorithm_tags", []),
-                               difficulty=args.get("difficulty"),
-                               time_limit_ms=args.get("time_limit_ms"),
-                               memory_limit_mb=args.get("memory_limit_mb"),
-                               subtasks=args.get("subtasks"),
-                               provider=args.get("provider", "")),
-    "check_data_strength": lambda pd, args: tool_check_data_strength(pd),
-    "final_check":         lambda pd, args: tool_final_check(pd, waive_bounds=args.get("waive_bounds")),
-}
-
-
 def execute_tool(problem_dir: Path, tool_name: str, args: dict) -> dict:
-    """Execute a tool by name. Returns structured dict for LLM tool_result."""
-    if tool_name not in TOOL_DISPATCHER:
+    """Execute a registered tool by name. Returns structured dict for LLM tool_result."""
+    import inspect
+
+    entry = _TOOL_REGISTRY.get(tool_name)
+    if entry is None:
         return {"success": False, "message": f"未知工具: {tool_name}"}
+    # 运行时从模块全局解析函数（保持可被测试 monkeypatch）
+    fn = globals()[entry["fn_name"]]
+    params = inspect.signature(fn).parameters
+    kwargs = {k: v for k, v in (args or {}).items()
+              if k in params and k != "problem_dir"}
     try:
-        return TOOL_DISPATCHER[tool_name](problem_dir, args)
+        return fn(problem_dir, **kwargs)
+    except TypeError as e:
+        return {"success": False, "message": f"工具参数错误: {e}"}
     except Exception as e:
         logging.getLogger("cp_agent.pipeline").exception(
             "tool %s raised (args=%s)", tool_name, args)

@@ -13,7 +13,7 @@ from typing import Optional
 
 import config
 from config import PROBLEMS_DIR
-from pipeline import execute_tool
+from pipeline import execute_tool, tool_schemas
 
 _logger = logging.getLogger("cp_agent.agent")
 
@@ -73,137 +73,9 @@ def _validate_problem_md_chinese(problem_dir: Path) -> dict:
 # TOOL DEFINITIONS — JSON Schema for function calling
 # ═══════════════════════════════════════════════════════════════════════════════
 
-TOOLS = [
-    {
-        "name": "read_file",
-        "description": "读取文件内容。路径必须是相对路径（沙盒限制在 problem 目录内）。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "相对路径，如 solution.cpp 或 inputs/01.in"}
-            },
-            "required": ["path"]
-        }
-    },
-    {
-        "name": "write_file",
-        "description": "创建或覆写文件。路径必须是相对路径。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "相对路径，如 solution.cpp"},
-                "content": {"type": "string", "description": "文件完整内容"}
-            },
-            "required": ["path", "content"]
-        }
-    },
-    {
-        "name": "edit_file",
-        "description": "搜索替换修改文件。old_text 必须与文件内容完全匹配（包括缩进和换行）。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "相对路径"},
-                "old_text": {"type": "string", "description": "要替换的原始文本（必须完全匹配）"},
-                "new_text": {"type": "string", "description": "替换后的新文本"}
-            },
-            "required": ["path", "old_text", "new_text"]
-        }
-    },
-    {
-        "name": "list_files",
-        "description": "列出目录内容（文件和子目录）。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "dir": {"type": "string", "description": "相对路径，默认 '.'"}
-            },
-        }
-    },
-    {
-        "name": "compile_cpp",
-        "description": "编译 C++ 文件。需要指定源文件和输出路径。输出路径通常为 bin/xxx。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "source": {"type": "string", "description": "源文件相对路径，如 solution.cpp"},
-                "output": {"type": "string", "description": "输出二进制相对路径，如 bin/solution"}
-            },
-            "required": ["source", "output"]
-        }
-    },
-    {
-        "name": "generate_test_data",
-        "description": "运行已编译的 generator 生成测试数据。generator 必须先编译为 bin/generator。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "count": {"type": "integer", "description": "生成的测试数据数量，默认 30"}
-            },
-        }
-    },
-    {
-        "name": "validate_inputs",
-        "description": "运行已编译的 validator 校验所有 inputs/*.in 文件。validator 必须先编译为 bin/validator。",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        }
-    },
-    {
-        "name": "run_solution",
-        "description": "运行已编译的 solution，为每个 inputs/*.in 生成对应的 outputs/*.out。solution 必须先编译为 bin/solution。",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        }
-    },
-    {
-        "name": "stress_test",
-        "description": "对拍验证：运行 generator 生成随机输入（自动附加 argv[3]='stress' 提示生成小数据），分别运行 solution 和 naive，比较输出。若已编译 bin/checker 则用 checker 判定（支持多解 SPJ 题），否则按 token 精确比对。solution 和 naive 必须先编译。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "count": {"type": "integer", "description": "对拍轮数，默认 1000"}
-            },
-        }
-    },
-    {
-        "name": "write_metadata",
-        "description": "生成 problem.yaml 元数据文件。你提供标题、算法标签、难度和时限/内存限制；测试点列表和 checker 类型由系统扫描目录自动生成。必须在 stress_test 通过之后调用。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "title": {"type": "string", "description": "题目标题（中文）"},
-                "algorithm_tags": {"type": "array", "items": {"type": "string"},
-                                   "description": "算法标签，如 ['动态规划', '前缀和']"},
-                "difficulty": {"type": "integer", "description": "Codeforces rating，如 1500"},
-                "time_limit_ms": {"type": "integer", "description": "时间限制（毫秒），默认 1000"},
-                "memory_limit_mb": {"type": "integer", "description": "内存限制（MB），默认 256"},
-                "subtasks": {"type": "array", "description": "可选：子任务列表 [{id, score, cases, constraints}]"}
-            },
-            "required": ["title", "algorithm_tags"]
-        }
-    },
-    {
-        "name": "check_data_strength",
-        "description": "数据强度检查：在体积最大的几个测试点上运行 solution 和 naive。要求 solution 在时限内通过，且 naive 至少在一个大测试点上超时（或 ≥5× solution 耗时）。注意：这里 naive 超时是好事（说明数据能卡掉暴力）；全部轻松通过说明数据太弱，需要增大 generator 的最大规模。",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        }
-    },
-    {
-        "name": "final_check",
-        "description": "出题完成前的最终检查：必需文件齐全、inputs/outputs 与 problem.yaml 一致、题面样例与 solution 输出一致（SPJ 用 checker）、约束边界被测试点触达、数据强度通过。全部通过后自动回填 problem.yaml 的 validation 块。总结前必须通过此检查。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "waive_bounds": {"type": "array", "items": {"type": "string"},
-                                 "description": "显式豁免的未触达边界，如 ['a[i].max']，需有正当理由"}
-            },
-        }
-    },
+# 沙盒工具的 schema 由 pipeline 注册表生成（schema 与实现声明在一起）；
+# 这里只额外追加两个非沙盒的搜索类工具。
+TOOLS = tool_schemas() + [
     {
         "name": "search_problem_db",
         "description": "原题查重：hybrid 检索本地题库（Codeforces + 洛谷）召回相似题后，系统自动用独立 LLM 裁判比对你的 problem.md 与高分候选，判定是否同一题目模型。必须先写好 problem.md 再调用。裁判判定撞题（must_change）时会拦截后续造数据/对拍等步骤。",
