@@ -219,6 +219,19 @@ Agent 模式下，`search_problem_db` 的完整流程（`agent._dedup_check`）�
 4. **门禁**：任一候选判 same_model → `dup_verdict = must_change`，agent_loop 拦截
    generate_test_data/stress_test/write_metadata/final_check，且完成前不允许结束；
    裁判调用失败时退回向量相似度阈值兜底（≥0.85 换题 / 0.7-0.85 人工判断）
+5. **自建题入库**（`index_generated`，默认开）：生成成功的题目 upsert 进 SQLite/FTS
+   并追加 FAISS 向量（`problem_db/ingest.py`），后续生成的查重能召回它——批量出题防自撞
+
+## 可选质量增强（verify.py，默认关闭）
+
+- **独立验题** `--cross-check` / config `cross_check`：另一次隔离 LLM 调用只看题面
+  （剥离题解）盲解，编译（错误反馈重试 1 次）后在全部测试点与标程比对（SPJ 走 checker）。
+  仅 WA 判 failed（生成判失败）；验题人程序 TLE/RE 记 skipped；全部无法运行记 inconclusive。
+  动机：std 和 naive 同源，错得一致时对拍测不出来。`cross_check_model` 可指定验题 provider（需强模型）
+- **难度校准** `--difficulty-review` / config `difficulty_review`：独立评审读题面+题解估
+  CF rating，与标称偏差 >300 警告（写入 result.json，不判失败）。`difficulty_review_model`
+  可独立配置，缺省优先复用 dedup_judge_model
+- 两者的 token 用量都并入 result.json 的 tokens 总账
 
 **为什么不用分数阈值判定**：`final_score` 是 RRF 排名融合分（量级 ~0.1，仅用于排序）；
 `vector_score` 度量的是叙事相似度而非题目模型等价性。实测：与 P4309 完全同模型的题

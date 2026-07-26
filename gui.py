@@ -207,6 +207,8 @@ class GeneratePage(QWidget):
             "系统会在不改变题目模型的前提下补全成完整题目；留空则按考点自由构思")
         self.idea.setFixedHeight(88)
         self.allow_dup = QCheckBox("撞题仍继续（--allow-dup，默认撞题即中止）")
+        self.cross_check = QCheckBox("独立验题（另一模型盲解比对，发现同源错误）")
+        self.diff_review = QCheckBox("难度校准（独立评审估 rating，偏差>300 警告）")
         self.test_count = QSpinBox()
         self.test_count.setRange(5, 200)
         self.test_count.setValue(30)
@@ -228,6 +230,8 @@ class GeneratePage(QWidget):
         form.addRow("额外要求", self.extra)
         form.addRow("题意描述", self.idea)
         form.addRow("", self.allow_dup)
+        form.addRow("", self.cross_check)
+        form.addRow("", self.diff_review)
         form.addRow("测试点数量", self.test_count)
         form.addRow("对拍轮数", self.stress)
         form.addRow("最大迭代", self.max_iter)
@@ -276,6 +280,10 @@ class GeneratePage(QWidget):
             args += ["--idea", self.idea.toPlainText().strip()]
             if self.allow_dup.isChecked():
                 args += ["--allow-dup"]
+        if self.cross_check.isChecked():
+            args += ["--cross-check"]
+        if self.diff_review.isChecked():
+            args += ["--difficulty-review"]
         if self.export_after.currentData():
             args += ["--export-after", self.export_after.currentData()]
 

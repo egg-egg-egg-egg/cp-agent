@@ -432,6 +432,8 @@ def generate_problem(
     stress_iterations: Optional[int] = None,
     idea: str = "",
     allow_dup: bool = False,
+    cross_check: Optional[bool] = None,
+    difficulty_review: Optional[bool] = None,
 ) -> dict:
     """
     Full agent workflow: LLM drives the entire process via tool calling.
@@ -520,6 +522,45 @@ def generate_problem(
         else:
             failure_reason = f"产物不完整: {artifacts}"
 
+    # ── 可选质量增强（独立验题 / 难度校准）与自建题目入库 ─────────────────
+    if cross_check is None:
+        cross_check = config.CROSS_CHECK
+    if difficulty_review is None:
+        difficulty_review = config.DIFFICULTY_REVIEW
+    tokens = dict(result.get("tokens", {}))
+
+    def _fold_tokens(extra: dict) -> None:
+        for k, v in (extra or {}).items():
+            tokens[k] = tokens.get(k, 0) + v
+
+    verify_llm_kwargs = {"provider": provider, "model": model,
+                         "base_url": base_url, "api_key": api_key}
+    cross_result = None
+    review_result = None
+
+    if success and cross_check:
+        import verify
+        print("\n  🕵️ 独立验题（cross-check）...")
+        cross_result = verify.cross_solve(problem_dir, verify_llm_kwargs)
+        _fold_tokens(cross_result.get("tokens"))
+        icon = {"passed": "✓", "failed": "✗", "inconclusive": "⚠"}[cross_result["status"]]
+        print(f"  {icon} {cross_result['message']}")
+        if cross_result["status"] == "failed":
+            success = False
+            failure_reason = cross_result["message"]
+
+    if success and difficulty_review:
+        import verify
+        print("\n  📏 难度校准评审 ...")
+        review_result = verify.review_difficulty(problem_dir, difficulty, verify_llm_kwargs)
+        _fold_tokens(review_result.get("tokens"))
+        print(f"  {'⚠' if review_result.get('status') == 'warning' else '✓'} {review_result.get('message')}")
+
+    indexed = None
+    if success and config.INDEX_GENERATED:
+        from dedup import index_generated_problem
+        indexed = index_generated_problem(problem_dir).get("success", False)
+
     payload = {
         "success": success,
         "problem_name": problem_name,
@@ -533,9 +574,14 @@ def generate_problem(
         "finished_at": datetime.now().isoformat(timespec="seconds"),
         "elapsed_sec": round(time.time() - t_start, 1),
         "iterations": result.get("iterations", 0),
-        "tokens": result.get("tokens", {}),
+        "tokens": tokens,
         "tool_calls": result.get("tool_stats", {}),
         "artifacts": artifacts,
+        **({"cross_check": {k: v for k, v in cross_result.items() if k != "tokens"}}
+           if cross_result else {}),
+        **({"difficulty_review": {k: v for k, v in review_result.items() if k != "tokens"}}
+           if review_result else {}),
+        **({"indexed": indexed} if indexed is not None else {}),
         "failure_reason": failure_reason,
     }
 

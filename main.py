@@ -90,6 +90,10 @@ def _main():
                         help="从文件读取题意/题面草稿（与 --idea 二选一）")
     parser.add_argument("--allow-dup", action="store_true",
                         help="完善模式下题意与题库撞题时继续生成（默认中止）")
+    parser.add_argument("--cross-check", action="store_true", default=None,
+                        help="可选：独立验题——另一模型只看题面盲解并与标程全测试点比对，不一致判失败")
+    parser.add_argument("--difficulty-review", action="store_true", default=None,
+                        help="可选：难度校准——独立评审估计 CF rating，偏差>300 给出警告")
 
     # ── LLM provider options ──
     enabled_names = config.list_enabled_provider_choices()
@@ -185,6 +189,8 @@ def _main():
         extra=args.extra,
         idea=idea,
         allow_dup=args.allow_dup,
+        cross_check=args.cross_check,
+        difficulty_review=args.difficulty_review,
         problem_name=args.name,
         provider=args.provider,
         model=args.model,

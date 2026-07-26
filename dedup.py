@@ -237,3 +237,47 @@ def dedup_check(problem_dir: Optional[Path], query: str, top_k: int = 8,
         )
     return retrieval
 
+
+def index_generated_problem(problem_dir) -> dict:
+    """
+    把生成成功的题目写入本地题库索引，供后续生成查重召回（防批量自撞）。
+    题库数据不存在时静默跳过。
+    """
+    try:
+        import yaml
+
+        from problem_db import DB_PATH, INDEX_PATH
+        from problem_db.ingest import add_generated_problem
+
+        base = Path(problem_dir)
+        md = base / "problem.md"
+        if not md.exists():
+            return {"success": False, "message": "problem.md 不存在"}
+        content = md.read_text(encoding="utf-8", errors="replace")
+
+        meta = {}
+        meta_path = base / "problem.yaml"
+        if meta_path.exists():
+            try:
+                meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
+            except yaml.YAMLError:
+                pass
+
+        title = meta.get("title") or next(
+            (line.lstrip("#").strip() for line in content.splitlines()
+             if line.startswith("#")), base.name)
+
+        result = add_generated_problem(
+            DB_PATH, INDEX_PATH,
+            source_id=base.name,
+            title=title,
+            content=content[:8000],
+            difficulty=str(meta.get("difficulty") or ""),
+            tags=", ".join(meta.get("algorithm_tags") or []),
+        )
+        if result.get("success"):
+            print(f"  📥 {result['message']}")
+        return result
+    except Exception as e:
+        _logger.exception("index_generated_problem failed for %s", problem_dir)
+        return {"success": False, "message": f"入库失败: {e}"}
