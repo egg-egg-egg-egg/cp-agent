@@ -40,7 +40,7 @@ def test_validate_inputs_new_style_bounds(tmp_problem_dir, tmp_config, monkeypat
 
     logs = iter(['"n": min-value-hit\n', '"n": max-value-hit\n'])
 
-    def fake_run(cmd, cwd=".", timeout=60, stdin_data=None):
+    def fake_run(cmd, cwd=".", timeout=60, stdin_data=None, **kwargs):
         log_arg = next(a for a in cmd if "--testOverviewLogFileName=" in a)
         with open(log_arg.split("=", 1)[1], "w") as f:
             f.write(next(logs))
@@ -57,7 +57,7 @@ def test_validate_inputs_reports_unhit_bounds(tmp_problem_dir, tmp_config, monke
     _write_validator(tmp_problem_dir, new_style=True)
     (tmp_problem_dir / "inputs" / "01.in").write_text("5\n")
 
-    def fake_run(cmd, cwd=".", timeout=60, stdin_data=None):
+    def fake_run(cmd, cwd=".", timeout=60, stdin_data=None, **kwargs):
         log_arg = next(a for a in cmd if "--testOverviewLogFileName=" in a)
         with open(log_arg.split("=", 1)[1], "w") as f:
             f.write('"n": min-value-hit\n')
@@ -74,7 +74,7 @@ def test_validate_inputs_old_style_no_bounds(tmp_problem_dir, tmp_config, monkey
     (tmp_problem_dir / "inputs" / "01.in").write_text("5\n")
     seen_cmds = []
 
-    def fake_run(cmd, cwd=".", timeout=60, stdin_data=None):
+    def fake_run(cmd, cwd=".", timeout=60, stdin_data=None, **kwargs):
         seen_cmds.append(cmd)
         return 0, "", ""
 

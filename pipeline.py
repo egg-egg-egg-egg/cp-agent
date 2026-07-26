@@ -41,19 +41,46 @@ def _sandbox_resolve(problem_dir: Path, path: str) -> tuple[Path, str]:
 
 # ─── Low-level helpers ───────────────────────────────────────────────────────
 
+def _apply_child_limits(mem_mb: Optional[int]) -> None:
+    """在子进程中设置资源限制（POSIX）。内存限制是防失控的安全网，非精确评测。"""
+    import resource
+    try:
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    except (ValueError, OSError):
+        pass
+    if mem_mb:
+        limit = mem_mb * 1024 * 1024
+        for name in ("RLIMIT_AS", "RLIMIT_DATA"):  # Linux 强制 AS，macOS 部分强制 DATA
+            try:
+                resource.setrlimit(getattr(resource, name), (limit, limit))
+            except (ValueError, OSError):
+                pass
+
+
 def _run_cmd(cmd: list[str], cwd: str = ".", timeout: int = 60,
-             stdin_data: Optional[str] = None) -> tuple[int, str, str]:
+             stdin_data: Optional[str] = None,
+             mem_mb: Optional[int] = None) -> tuple[int, str, str]:
     """Run a command, return (returncode, stdout, stderr)."""
+    kwargs = {}
+    if os.name == "posix":
+        kwargs["preexec_fn"] = lambda: _apply_child_limits(mem_mb)
     try:
         r = subprocess.run(
             cmd, cwd=cwd, capture_output=True, text=True,
-            timeout=timeout, input=stdin_data
+            timeout=timeout, input=stdin_data, **kwargs
         )
         return r.returncode, r.stdout, r.stderr
     except subprocess.TimeoutExpired:
         return -1, "", "TIMEOUT"
     except FileNotFoundError:
         return -2, "", f"Command not found: {cmd[0]}"
+
+
+def _child_mem_mb(problem_dir: Path) -> int:
+    """运行生成的程序时的内存安全网：题目内存限制（或默认值）的 4 倍。"""
+    meta = _load_problem_yaml(problem_dir)
+    base = (meta or {}).get("memory_limit_mb") or config.DEFAULT_MEMORY_LIMIT_MB
+    return int(base) * 4
 
 
 def _compile(src: Path, out: Path) -> tuple[bool, str]:
@@ -301,9 +328,11 @@ def tool_generate_test_data(problem_dir: Path, count: int = 30) -> dict:
 
     created = []
     errors = []
+    mem_mb = _child_mem_mb(problem_dir)
     for i in range(1, count + 1):
         cmd = [str(gen_bin), str(i), str(count)]
-        code, stdout, stderr = _run_cmd(cmd, cwd=str(problem_dir.resolve()), timeout=30)
+        code, stdout, stderr = _run_cmd(cmd, cwd=str(problem_dir.resolve()), timeout=30,
+                                         mem_mb=mem_mb)
         if code != 0:
             errors.append(f"test {i}: {stderr[:200]}")
             if len(errors) >= 3:
@@ -383,16 +412,18 @@ def tool_validate_inputs(problem_dir: Path) -> dict:
     bounds: dict = {}
     errors = []
     count = 0
+    mem_mb = _child_mem_mb(problem_dir)
     for f in inputs:
         if new_style:
             log_file = base / ".judge" / "overview.log"
             log_file.parent.mkdir(exist_ok=True)
             code, stdout, stderr = _run_cmd(
                 [str(val_bin), f"--testOverviewLogFileName={log_file}"],
-                cwd=str(base), stdin_data=f.read_text(), timeout=10
+                cwd=str(base), stdin_data=f.read_text(), timeout=10, mem_mb=mem_mb
             )
         else:
-            code, stdout, stderr = _run_cmd([str(val_bin), str(f)], cwd=str(base), timeout=10)
+            code, stdout, stderr = _run_cmd([str(val_bin), str(f)], cwd=str(base), timeout=10,
+                                             mem_mb=mem_mb)
 
         if code != 0:
             errors.append(f"{f.name}: {stderr[:300]}")
@@ -460,11 +491,12 @@ def tool_run_solution(problem_dir: Path, timeout_sec: Optional[int] = None) -> d
     created = []
     errors = []
     timeout_files = []
+    mem_mb = _child_mem_mb(problem_dir)
     for f in inputs:
         inp = f.read_text()
         code, stdout, stderr = _run_cmd(
             [str(sol_bin)], cwd=str(problem_dir.resolve()),
-            stdin_data=inp, timeout=timeout_sec
+            stdin_data=inp, timeout=timeout_sec, mem_mb=mem_mb
         )
         if code == -1:  # TIMEOUT
             timeout_files.append(f.name)
@@ -533,7 +565,7 @@ def _run_checker(problem_dir: Path, in_text: str, out_text: str,
 
     code, _, stderr = _run_cmd(
         [str(checker_bin), str(in_f), str(out_f), str(ans_f)],
-        cwd=str(base), timeout=10
+        cwd=str(base), timeout=10, mem_mb=_child_mem_mb(problem_dir)
     )
     if code == -1:
         return "ERROR", "checker 超时"
@@ -570,13 +602,14 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
     naive_soft_limit = config.DEFAULT_STRESS_NAIVE_SOFT_LIMIT_SEC
     checker_bin = problem_dir.resolve() / "bin" / "checker"
     use_checker = checker_bin.exists()
+    mem_mb = _child_mem_mb(problem_dir)
     mismatches = []
     completed = 0
     for i in range(1, count + 1):
         # 生成随机输入（argv[3]="stress" 提示 generator 使用对拍模式的小规模数据）
         code, inp, _ = _run_cmd(
             [str(gen_bin), str(i), str(count), "stress"],
-            cwd=str(problem_dir.resolve()), timeout=10
+            cwd=str(problem_dir.resolve()), timeout=10, mem_mb=mem_mb
         )
         if code != 0:
             continue
@@ -584,7 +617,7 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
         # 运行 solution（超时说明标程有误）
         sol_code, sol_out, sol_err = _run_cmd(
             [str(sol_bin)], cwd=str(problem_dir.resolve()),
-            stdin_data=inp, timeout=sol_timeout
+            stdin_data=inp, timeout=sol_timeout, mem_mb=mem_mb
         )
         if sol_code == -1:  # TIMEOUT
             return {
@@ -607,7 +640,7 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
         t_naive = _time.time()
         naive_code, naive_out, naive_err = _run_cmd(
             [str(naive_bin)], cwd=str(problem_dir.resolve()),
-            stdin_data=inp, timeout=naive_timeout
+            stdin_data=inp, timeout=naive_timeout, mem_mb=mem_mb
         )
         naive_elapsed = _time.time() - t_naive
 
@@ -814,12 +847,13 @@ def tool_check_data_strength(problem_dir: Path, top_n: int = 3) -> dict:
     details = []
     naive_tle_on = []
     strong = False
+    mem_mb = _child_mem_mb(problem_dir)
     for f in inputs:
         inp = f.read_text()
 
         t0 = _time.time()
         sol_code, _, _ = _run_cmd([str(sol_bin)], cwd=str(base), stdin_data=inp,
-                                  timeout=max(int(tl_sec * 2) + 1, 2))
+                                  timeout=max(int(tl_sec * 2) + 1, 2), mem_mb=mem_mb)
         sol_elapsed = _time.time() - t0
         if sol_code == -1 or sol_elapsed > tl_sec:
             return {
@@ -831,7 +865,7 @@ def tool_check_data_strength(problem_dir: Path, top_n: int = 3) -> dict:
 
         t0 = _time.time()
         naive_code, _, _ = _run_cmd([str(naive_bin)], cwd=str(base), stdin_data=inp,
-                                    timeout=max(int(tl_sec * 3) + 1, 3))
+                                    timeout=max(int(tl_sec * 3) + 1, 3), mem_mb=mem_mb)
         naive_elapsed = _time.time() - t0
         naive_tle = naive_code == -1 or naive_elapsed > tl_sec
 
@@ -957,7 +991,8 @@ def tool_final_check(problem_dir: Path, waive_bounds: Optional[list] = None) -> 
                 encoding="utf-8", errors="replace")
             if val_bin.exists():
                 if new_style:
-                    vcode, _, vstderr = _run_cmd([str(val_bin)], cwd=str(base), stdin_data=sin, timeout=10)
+                    vcode, _, vstderr = _run_cmd([str(val_bin)], cwd=str(base), stdin_data=sin, timeout=10,
+                                                 mem_mb=_child_mem_mb(problem_dir))
                 else:
                     tmp = base / ".judge" / f"sample{idx}.in"
                     tmp.parent.mkdir(exist_ok=True)
@@ -966,7 +1001,8 @@ def tool_final_check(problem_dir: Path, waive_bounds: Optional[list] = None) -> 
                 if vcode != 0:
                     problems.append(f"样例 {idx} 未通过 validator: {vstderr[:150]}")
                     continue
-            scode, s_out, s_err = _run_cmd([str(sol_bin)], cwd=str(base), stdin_data=sin, timeout=10)
+            scode, s_out, s_err = _run_cmd([str(sol_bin)], cwd=str(base), stdin_data=sin, timeout=10,
+                                           mem_mb=_child_mem_mb(problem_dir))
             if scode != 0:
                 problems.append(f"样例 {idx}: solution 运行失败 (exit={scode}): {s_err[:150]}")
                 continue

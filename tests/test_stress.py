@@ -11,7 +11,7 @@ def _scripted_run_cmd(script):
     """Return a fake _run_cmd that pops (returncode, stdout, stderr) per call."""
     calls = []
 
-    def fake(cmd, cwd=".", timeout=60, stdin_data=None):
+    def fake(cmd, cwd=".", timeout=60, stdin_data=None, **kwargs):
         calls.append(cmd)
         return script.pop(0) if script else (0, "", "")
 
