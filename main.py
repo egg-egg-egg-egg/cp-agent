@@ -19,19 +19,14 @@ import argparse
 import sys
 from pathlib import Path
 
-from config import (
-    ALGO_TOPICS,
-    DIFFICULTY_PRESETS,
-    LLM_PROVIDERS,
-    get_now_model,
-    list_enabled_provider_choices,
-)
+import config
+from config import ConfigError
 
 
 def list_topics():
     print("\nAvailable algorithm topics:")
     print("-" * 50)
-    for key, desc in ALGO_TOPICS.items():
+    for key, desc in config.ALGO_TOPICS.items():
         print(f"  {key:<20} {desc}")
     print()
 
@@ -39,7 +34,7 @@ def list_topics():
 def list_difficulties():
     print("\nAvailable difficulty levels (Codeforces rating):")
     print("-" * 60)
-    for score, desc in DIFFICULTY_PRESETS.items():
+    for score, desc in config.DIFFICULTY_PRESETS.items():
         print(f"  {score:<6} {desc}")
     print()
 
@@ -47,11 +42,11 @@ def list_difficulties():
 def list_providers():
     print("\nAvailable LLM providers:")
     print("-" * 80)
-    print(f"  Current nowModel: {get_now_model() or 'N/A'}")
+    print(f"  Current nowModel: {config.get_now_model() or 'N/A'}")
     print()
     print(f"  {'Protocol':<12} {'Provider':<14} {'Default Model':<30} {'Env Var':<22} {'Enabled'}")
     print(f"  {'-'*10:<12} {'-'*12:<14} {'-'*28:<30} {'-'*20:<22} {'-'*7}")
-    for protocol, providers in LLM_PROVIDERS.items():
+    for protocol, providers in config.LLM_PROVIDERS.items():
         for name, cfg in providers.items():
             enabled = "✓" if cfg.get("enabled", True) else "✗"
             env = cfg.get("env_key", "") or "N/A"
@@ -64,6 +59,14 @@ def list_providers():
 
 
 def main():
+    try:
+        _main()
+    except ConfigError as e:
+        print(f"配置错误: {e}")
+        sys.exit(2)
+
+
+def _main():
     parser = argparse.ArgumentParser(
         description="CP-Agent: Automated CP Problem Generator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -81,7 +84,7 @@ def main():
                         help="Extra requirements for problem generation")
 
     # ── LLM provider options ──
-    enabled_names = list_enabled_provider_choices()
+    enabled_names = config.list_enabled_provider_choices()
     parser.add_argument("--provider", "-P", type=str, default=None,
                         choices=enabled_names,
                         help="LLM provider override (default: config.yaml nowModel)")

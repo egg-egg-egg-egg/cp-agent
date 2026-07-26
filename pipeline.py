@@ -10,8 +10,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from config import CXX, CXX_FLAGS, TESTLIB_PATH, DEFAULT_STRESS_ITERATIONS
-
+from config import CXX, CXX_FLAGS, DEFAULT_STRESS_ITERATIONS, TESTLIB_PATH
 
 # ─── Sandbox helper ──────────────────────────────────────────────────────────
 
@@ -142,7 +141,7 @@ def tool_edit_file(problem_dir: Path, path: str,
         if old_text not in content:
             return {
                 "success": False,
-                "message": f"未找到匹配文本。请检查 old_text 是否与文件内容完全一致（包括缩进和换行）",
+                "message": "未找到匹配文本。请检查 old_text 是否与文件内容完全一致（包括缩进和换行）",
                 "path": path,
             }
 
@@ -209,7 +208,7 @@ def tool_generate_test_data(problem_dir: Path, count: int = 30) -> dict:
     """运行 generator 生成测试数据。返回 {success, message, files_created}"""
     gen_bin = problem_dir.resolve() / "bin" / "generator"
     if not gen_bin.exists():
-        return {"success": False, "message": f"generator 未编译，请先 compile_cpp generator.cpp -> bin/generator"}
+        return {"success": False, "message": "generator 未编译，请先 compile_cpp generator.cpp -> bin/generator"}
 
     inputs_dir = problem_dir.resolve() / "inputs"
     inputs_dir.mkdir(parents=True, exist_ok=True)

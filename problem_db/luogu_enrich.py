@@ -15,8 +15,8 @@ import json
 import re
 import sqlite3
 import time
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 import requests
 
@@ -162,7 +162,6 @@ def enrich_luogu_problems(
 
     enriched = 0
     failed = 0
-    skipped = 0
     start_time = time.time()
 
     def process_one(row: tuple) -> tuple:
@@ -196,7 +195,6 @@ def enrich_luogu_problems(
         for future in as_completed(futures):
             result = future.result()
             db_id = result[0]
-            pid = result[1]
 
             if result[3]:  # error
                 failed += 1

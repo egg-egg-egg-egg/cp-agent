@@ -47,7 +47,7 @@ def fetch(session, pid):
             "formatO": contenu.get("formatO", ""),
             "hint": contenu.get("hint", ""),
         }
-    except Exception as e:
+    except Exception:
         return None
 
 

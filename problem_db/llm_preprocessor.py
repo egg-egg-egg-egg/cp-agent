@@ -4,9 +4,9 @@ before vectorization. Improves embedding quality by normalizing different
 phrasings of similar problems.
 """
 import json
+import re
 import sqlite3
 import time
-import re
 from pathlib import Path
 from typing import Optional
 
@@ -48,8 +48,8 @@ def _call_llm_simple(messages: list[dict], system: str, provider: str,
     Simple LLM call without tools. Uses the same provider logic as agent.py.
     Returns the raw response text.
     """
-    import sys
     import os
+    import sys
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import get_provider
 
@@ -288,7 +288,7 @@ def preprocess_problems_batch(db_path: Path, max_problems: int = 0,
     conn.commit()
     conn.close()
 
-    print(f"\n✅ LLM预处理完成:")
+    print("\n✅ LLM预处理完成:")
     print(f"  成功: {success_count}, 失败: {fail_count}")
 
     return success_count

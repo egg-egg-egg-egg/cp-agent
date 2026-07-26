@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cp-agent"
+version = "0.1.0"
+description = "LLM-driven competitive programming problem generator"
+requires-python = ">=3.10"
+dependencies = [
+  "anthropic>=0.40",
+  "openai>=1.40",
+  "pyyaml>=6.0",
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+db = ["sentence-transformers>=2.7", "faiss-cpu>=1.8"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[tool.setuptools]
+py-modules = ["main", "config", "agent", "pipeline", "batch_generate", "report", "export", "logutil"]
+packages = ["problem_db"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

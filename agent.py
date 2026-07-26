@@ -7,15 +7,14 @@ The LLM autonomously drives the problem generation workflow by calling tools:
   stress_test, search_problem_db, web_search
 """
 import json
-import os
-import sys
-import subprocess
 from pathlib import Path
 from typing import Optional
 
 from config import (
-    PROBLEMS_DIR, DIFFICULTY_PRESETS, ALGO_TOPICS,
+    ALGO_TOPICS,
     DEFAULT_STRESS_ITERATIONS,
+    DIFFICULTY_PRESETS,
+    PROBLEMS_DIR,
 )
 from pipeline import execute_tool
 
@@ -332,8 +331,8 @@ int main(int argc, char* argv[]) {
 def _web_search(query: str) -> dict:
     """Search the web using DuckDuckGo HTML (no API key needed)."""
     try:
-        import urllib.request
         import urllib.parse
+        import urllib.request
 
         url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -486,20 +485,12 @@ def call_llm_with_tools(messages: list[dict], system: str, provider: str,
     Call LLM API with tool support. Routes to Anthropic or OpenAI based on protocol.
     Returns unified format: {stop_reason, content, usage}
     """
-    from config import get_provider
+    from config import get_provider, resolve_api_key
 
     protocol, cfg = get_provider(provider)
     resolved_model = model or cfg["default_model"]
     resolved_base_url = base_url or cfg["base_url"]
-    # API key resolution:
-    #   1. CLI --api-key argument
-    #   2. config yaml api_key field (direct value)
-    #   3. config yaml env_key field: try as env var name first, if not found use as direct key
-    cfg_api_key = cfg.get("api_key", "")
-    cfg_env_key = cfg.get("env_key", "")
-    resolved_api_key = api_key or cfg_api_key
-    if not resolved_api_key and cfg_env_key:
-        resolved_api_key = os.environ.get(cfg_env_key, "") or cfg_env_key
+    resolved_api_key = resolve_api_key(cfg, cli_key=api_key, provider_name=provider or "")
 
     if protocol == "anthropic":
         return _call_anthropic_with_tools(messages, system, resolved_model,
@@ -566,7 +557,6 @@ def agent_loop(
         total_output_tokens += resp.get("usage", {}).get("output", 0)
 
         content = resp["content"]
-        stop_reason = resp["stop_reason"]
 
         # Extract text content (for display)
         text_parts = [c["text"] for c in content if c["type"] == "text"]
@@ -778,7 +768,7 @@ def generate_problem(
     if result["success"]:
         print(f"\n🎉 Problem package ready: {problem_dir}")
     else:
-        print(f"\n⚠️  Agent 未完成。查看上方日志了解详情。")
+        print("\n⚠️  Agent 未完成。查看上方日志了解详情。")
 
     return result
 

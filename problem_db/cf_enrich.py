@@ -2,14 +2,14 @@
 Enrich Codeforces problems with full descriptions from problem pages.
 Multi-threaded with rate limiting.
 """
+import random
 import re
 import sqlite3
-import time
-import random
-import urllib.request
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import time
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -71,7 +71,7 @@ def fetch_problem_description(contest_id: str, index: str) -> str:
         with urllib.request.urlopen(req, timeout=15) as resp:
             html = resp.read().decode("utf-8", errors="replace")
         return extract_description(html)
-    except Exception as e:
+    except Exception:
         return ""
 
 
@@ -94,10 +94,8 @@ def enrich_cf_problems(db_path: Path, batch_size: int = 100, max_problems: int =
         rows = rows[:max_problems]
 
     print(f"📡 Enriching {len(rows)} CF problems with full descriptions ({workers} workers)...")
-    print(f"   Rate limit: 1-3 seconds between requests per worker")
+    print("   Rate limit: 1-3 seconds between requests per worker")
 
-    enriched = 0
-    failed = 0
     start = time.time()
     counter_lock = threading.Lock()
     counters = {"enriched": 0, "failed": 0}

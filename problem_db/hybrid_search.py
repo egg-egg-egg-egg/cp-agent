@@ -11,7 +11,6 @@ import re
 import sqlite3
 from pathlib import Path
 
-
 TERM_ALIASES: dict[str, list[str]] = {
     "线段树": ["线段树", "segment tree", "segtree"],
     "树状数组": ["树状数组", "fenwick", "binary indexed tree", "bit"],

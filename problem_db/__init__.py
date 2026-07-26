@@ -28,10 +28,11 @@ def cmd_crawl(counts: dict = None):
 
 def cmd_build_index(model_key: str = "mini"):
     """Build FAISS index from crawled data."""
+    import sqlite3
+
     from .embedder import get_embedder
     from .index import ProblemIndex
     from .llm_preprocessor import VECTOR_TEXT_VERSION, get_standardized_text
-    import sqlite3
 
     ensure_dirs()
 
@@ -84,7 +85,7 @@ def cmd_build_index(model_key: str = "mini"):
         "problem_count": len(problem_ids),
     })
 
-    print(f"✅ Index built and saved")
+    print("✅ Index built and saved")
 
 
 def cmd_enrich(source: str = "codeforces", count: int = 0, workers: int = 5):
@@ -147,8 +148,8 @@ def cmd_preprocess_risky(provider: str = "deepseek", delay: float = 1.0,
                          limit: int = 500, term: str | None = None,
                          model: str | None = None):
     """Use LLM preprocessing only for high-risk structured-field rows."""
-    from .structured_audit import find_risky_structured
     from .llm_preprocessor import preprocess_problems_batch
+    from .structured_audit import find_risky_structured
 
     ensure_dirs()
     risky = find_risky_structured(DB_PATH, term=term, limit=limit)

@@ -1,10 +1,18 @@
 """Allow running as: python -m problem_db [crawl|import|enrich|enrich_luogu|preprocess|preprocess_risky|audit_structured|build|build_fts|search]"""
-from problem_db import (
-    cmd_crawl, cmd_enrich, cmd_enrich_luogu, cmd_preprocess,
-    cmd_build_index, cmd_build_fts, cmd_search, cmd_import,
-    cmd_audit_structured, cmd_preprocess_risky,
-)
 import sys
+
+from problem_db import (
+    cmd_audit_structured,
+    cmd_build_fts,
+    cmd_build_index,
+    cmd_crawl,
+    cmd_enrich,
+    cmd_enrich_luogu,
+    cmd_import,
+    cmd_preprocess,
+    cmd_preprocess_risky,
+    cmd_search,
+)
 
 if len(sys.argv) < 2:
     print("Usage: python -m problem_db [crawl|import|enrich|enrich_luogu|preprocess|preprocess_risky|audit_structured|build|build_fts|search] [args]")

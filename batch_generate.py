@@ -10,11 +10,11 @@ Strategy:
 """
 
 import json
-import sys
 import subprocess
+import sys
 import time
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent
 CHECKPOINT_FILE = PROJECT_ROOT / "batch_checkpoint.json"
@@ -154,7 +154,7 @@ def main():
     completed, failed = load_checkpoint()
 
     log(f"{'='*60}")
-    log(f"CP-Agent Batch Generation")
+    log("CP-Agent Batch Generation")
     log(f"  Topics: {len(TOPICS)}")
     log(f"  Difficulties: {len(DIFFICULTIES)}")
     log(f"  Replicas per combo: {REPLICAS_PER_COMBO}")
@@ -209,7 +209,7 @@ def main():
     # Final summary
     total_time = time.time() - batch_start
     log(f"\n{'='*60}")
-    log(f"BATCH COMPLETE")
+    log("BATCH COMPLETE")
     log(f"  Success: {stats['success']}")
     log(f"  Failed: {stats['failed']}")
     log(f"  Total completed: {len(completed)}/{TOTAL_PROBLEMS}")
@@ -217,7 +217,7 @@ def main():
     log(f"{'='*60}")
 
     if failed:
-        log(f"Failed problems:")
+        log("Failed problems:")
         for name, info in failed.items():
             log(f"  - {name}: {info['summary']}")
 

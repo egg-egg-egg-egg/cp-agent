@@ -4,7 +4,6 @@ Import Luogu problems from GitHub repositories.
 2. Problem descriptions from OldAntique110/Luogu-Problems (Markdown)
 """
 import json
-import re
 import sqlite3
 import sys
 import urllib.request

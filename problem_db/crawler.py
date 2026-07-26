@@ -6,11 +6,10 @@ import json
 import random
 import sqlite3
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Optional
-
 
 # ─── Rate limiter ────────────────────────────────────────────────────────────
 
@@ -136,7 +135,7 @@ def crawl_codeforces(conn: sqlite3.Connection, count: int = 2000) -> int:
 
     # Use Codeforces API (official, no ban risk)
     url = "https://codeforces.com/api/problemset.problems"
-    print(f"  Fetching problem list from API...")
+    print("  Fetching problem list from API...")
     data = fetch_url(url, rl)
     if not data:
         print("  ✗ Failed to fetch Codeforces API")
@@ -182,7 +181,7 @@ def crawl_atcoder(conn: sqlite3.Connection, count: int = 2000) -> int:
 
     # AtCoder has a problems API
     for page in range(1, (count // 50) + 2):
-        url = f"https://kenkoooo.com/atcoder/resources/problems.json"
+        url = "https://kenkoooo.com/atcoder/resources/problems.json"
         if page == 1:
             data = fetch_url(url, rl)
             if not data:

@@ -23,9 +23,9 @@
 #         enabled: true          ← 【必填】false 则 CLI 不可见
 #         base_url: "https://..."← 【必填】API 端点，必须是完整 URL
 #         default_model: "xxx"   ← 【必填】模型标识符
-#         api_key: "sk-xxx"      ← 【选填】直接写 API key（优先级最高）
-#         env_key: "MY_API_KEY"  ← 【选填】环境变量名（api_key 为空时才用这个）
-#                                  优先级：CLI --api-key > api_key > env_key
+#         api_key: "sk-xxx"      ← 【选填】直接写 API key 值
+#         env_key: "MY_API_KEY"  ← 【选填】环境变量名（只接受变量名，不接受明文 key）
+#                                  优先级：CLI --api-key > api_key > env_key 指向的环境变量
 #
 # ─── 协议说明 ──────────────────────────────────────────────
 #   "anthropic" → 使用 Anthropic SDK（_call_anthropic）
@@ -81,10 +81,17 @@ difficulty:
   2900: "大师级，接近人类出题极限"
   3000: "大师级，极致难度"
 
+# --- Problem limits (problem.yaml 元数据默认值) ---
+time_limit_ms: 1000       # 默认时限（毫秒）
+memory_limit_mb: 256      # 默认内存限制（MB）
+
 # --- Stress test ---
 # 对拍测试参数
-stress_iterations: 10000  # 对拍轮数
-stress_timeout_sec: 5     # 单组数据超时（秒）
+stress_iterations: 10000            # 对拍轮数
+stress_timeout_sec: 5               # 对拍中 std 单组超时（秒），超时判失败
+solution_timeout_sec: 5             # run_solution 生成 outputs 时单组超时（秒）
+stress_naive_timeout_sec: 15        # 对拍中 naive 单组硬超时（秒）
+stress_naive_soft_limit_sec: 10     # 对拍中 naive 软上限（秒），超过即中止并要求缩小对拍数据
 
 # --- LLM Providers ---
 # 结构：协议分类 → 供应商名 → 配置
@@ -94,7 +101,8 @@ stress_timeout_sec: 5     # 单组数据超时（秒）
 #   base_url      : API 端点 URL
 #   default_model : 模型标识符
 #   api_key       : 【选填】直接写 API key 值（优先读这个）
-#   env_key       : 【选填】环境变量名（api_key 为空时 fallback 到环境变量）
+#   env_key       : 【选填】环境变量名，如 DEEPSEEK_API_KEY。
+#                   只接受环境变量名；填明文 key 会直接报错（请改填 api_key）
 #
 providers:
   # ── Anthropic 协议（Claude 系列） ──

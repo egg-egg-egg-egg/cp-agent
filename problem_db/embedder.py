@@ -2,10 +2,11 @@
 Local embedding model wrapper for problem vectorization.
 Uses sentence-transformers for local, offline embedding generation.
 """
-import numpy as np
 import os
 from pathlib import Path
 from typing import Optional
+
+import numpy as np
 
 # Model choices (lightweight, good for Chinese+English)
 MODELS = {

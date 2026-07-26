@@ -426,7 +426,7 @@ def preprocess_problems_batch_fast(db_path: Path, max_problems: int = 0,
     conn.commit()
     conn.close()
 
-    print(f"\n✅ 快速预处理完成:")
+    print("\n✅ 快速预处理完成:")
     print(f"  成功: {success_count}, 失败: {fail_count}")
 
     return success_count
