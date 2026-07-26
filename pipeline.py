@@ -251,13 +251,41 @@ def tool_generate_test_data(problem_dir: Path, count: int = 30) -> dict:
 
 # ─── 7. validate_inputs ─────────────────────────────────────────────────────
 
+_BOUNDS_LINE_RE = None  # compiled lazily
+
+
+def _parse_bounds_log(text: str) -> dict:
+    """Parse testlib --testOverviewLogFileName bounds lines: '"n": min-value-hit max-value-hit'."""
+    import re
+    global _BOUNDS_LINE_RE
+    if _BOUNDS_LINE_RE is None:
+        _BOUNDS_LINE_RE = re.compile(r'^"(.*)":((?:\s+(?:min|max)-value-hit)*)\s*$')
+    result = {}
+    for line in text.splitlines():
+        m = _BOUNDS_LINE_RE.match(line)
+        if not m:
+            continue
+        result[m.group(1)] = {
+            "min_hit": "min-value-hit" in m.group(2),
+            "max_hit": "max-value-hit" in m.group(2),
+        }
+    return result
+
+
 def tool_validate_inputs(problem_dir: Path) -> dict:
-    """运行 validator 校验所有输入。返回 {success, message, validated_count, errors}"""
-    val_bin = problem_dir.resolve() / "bin" / "validator"
+    """
+    运行 validator 校验所有输入。兼容两种 validator 约定：
+    - registerValidation（推荐）: stdin 传入，并用 --testOverviewLogFileName
+      收集每个变量的边界触达情况，跨测试点合并输出 bounds_report/bounds_unhit
+    - registerGen + inf.init（旧式）: argv[1] 传文件路径，无边界报告
+    返回 {success, message, validated_count, errors, bounds_report, bounds_unhit}
+    """
+    base = problem_dir.resolve()
+    val_bin = base / "bin" / "validator"
     if not val_bin.exists():
         return {"success": False, "message": "validator 未编译，请先 compile_cpp validator.cpp -> bin/validator"}
 
-    inputs_dir = problem_dir.resolve() / "inputs"
+    inputs_dir = base / "inputs"
     if not inputs_dir.exists():
         return {"success": False, "message": "inputs/ 目录不存在，请先 generate_test_data"}
 
@@ -265,17 +293,36 @@ def tool_validate_inputs(problem_dir: Path) -> dict:
     if not inputs:
         return {"success": False, "message": "inputs/ 目录为空，请先 generate_test_data"}
 
+    val_src = base / "validator.cpp"
+    new_style = val_src.exists() and "registerValidation" in val_src.read_text(
+        encoding="utf-8", errors="replace")
+
+    bounds: dict = {}
     errors = []
     count = 0
     for f in inputs:
-        cmd = [str(val_bin), str(f)]
-        code, stdout, stderr = _run_cmd(cmd, cwd=str(problem_dir.resolve()), timeout=10)
+        if new_style:
+            log_file = base / ".judge" / "overview.log"
+            log_file.parent.mkdir(exist_ok=True)
+            code, stdout, stderr = _run_cmd(
+                [str(val_bin), f"--testOverviewLogFileName={log_file}"],
+                cwd=str(base), stdin_data=f.read_text(), timeout=10
+            )
+        else:
+            code, stdout, stderr = _run_cmd([str(val_bin), str(f)], cwd=str(base), timeout=10)
+
         if code != 0:
             errors.append(f"{f.name}: {stderr[:300]}")
             if len(errors) >= 5:
                 break
-        else:
-            count += 1
+            continue
+
+        count += 1
+        if new_style and log_file.exists():
+            for var, hits in _parse_bounds_log(log_file.read_text(encoding="utf-8", errors="replace")).items():
+                agg = bounds.setdefault(var, {"min_hit": False, "max_hit": False})
+                agg["min_hit"] = agg["min_hit"] or hits["min_hit"]
+                agg["max_hit"] = agg["max_hit"] or hits["max_hit"]
 
     if errors:
         return {
@@ -285,10 +332,24 @@ def tool_validate_inputs(problem_dir: Path) -> dict:
             "errors": errors,
         }
 
+    bounds_unhit = sorted(
+        f"{var}.{side}"
+        for var, hits in bounds.items()
+        for side, hit in (("min", hits["min_hit"]), ("max", hits["max_hit"]))
+        if not hit
+    )
+    message = f"全部 {count} 个输入校验通过"
+    if bounds_unhit:
+        message += f"；警告：以下约束边界未被任何测试点触达: {', '.join(bounds_unhit)}"
+    elif new_style:
+        message += "；所有变量的 min/max 边界均被触达"
+
     return {
         "success": True,
-        "message": f"全部 {count} 个输入校验通过",
+        "message": message,
         "validated_count": count,
+        "bounds_report": bounds if new_style else None,
+        "bounds_unhit": bounds_unhit if new_style else None,
     }
 
 
@@ -603,7 +664,258 @@ def tool_write_metadata(problem_dir: Path, title: str, algorithm_tags: list,
     }
 
 
-# ─── 11. web_search (stub — 由 agent.py 实现) ───────────────────────────────
+def _load_problem_yaml(problem_dir: Path) -> dict | None:
+    import yaml
+    path = problem_dir.resolve() / "problem.yaml"
+    if not path.exists():
+        return None
+    try:
+        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return None
+
+
+# ─── 11. check_data_strength ─────────────────────────────────────────────────
+
+def tool_check_data_strength(problem_dir: Path, top_n: int = 3) -> dict:
+    """
+    数据强度检查：在体积最大的 top_n 个测试点上，solution 必须在时限内通过，
+    而 naive 必须至少在一个测试点上超时（或耗时 ≥ 5× solution）。
+    注意：与 stress_test 相反，这里 naive 超时是【好事】——说明数据能区分
+    正解与暴力；全部大点 naive 轻松通过说明数据太弱。
+    """
+    import time as _time
+
+    base = problem_dir.resolve()
+    sol_bin = base / "bin" / "solution"
+    naive_bin = base / "bin" / "naive"
+    if not sol_bin.exists() or not naive_bin.exists():
+        return {"success": False, "message": "需要先编译 bin/solution 和 bin/naive"}
+
+    meta = _load_problem_yaml(problem_dir)
+    tl_ms = (meta or {}).get("time_limit_ms") or config.DEFAULT_TIME_LIMIT_MS
+    tl_sec = tl_ms / 1000.0
+
+    inputs = sorted((base / "inputs").glob("*.in"),
+                    key=lambda f: f.stat().st_size, reverse=True)[:top_n]
+    if not inputs:
+        return {"success": False, "message": "inputs/ 为空，请先 generate_test_data"}
+
+    details = []
+    naive_tle_on = []
+    strong = False
+    for f in inputs:
+        inp = f.read_text()
+
+        t0 = _time.time()
+        sol_code, _, _ = _run_cmd([str(sol_bin)], cwd=str(base), stdin_data=inp,
+                                  timeout=max(int(tl_sec * 2) + 1, 2))
+        sol_elapsed = _time.time() - t0
+        if sol_code == -1 or sol_elapsed > tl_sec:
+            return {
+                "success": False,
+                "message": f"标程在最大数据 {f.name} 上耗时 {sol_elapsed:.2f}s，超过时限 {tl_ms}ms —— 标程复杂度或时限设置有误",
+                "solution_timeout": True,
+                "file": f.name,
+            }
+
+        t0 = _time.time()
+        naive_code, _, _ = _run_cmd([str(naive_bin)], cwd=str(base), stdin_data=inp,
+                                    timeout=max(int(tl_sec * 3) + 1, 3))
+        naive_elapsed = _time.time() - t0
+        naive_tle = naive_code == -1 or naive_elapsed > tl_sec
+
+        details.append({
+            "file": f.name,
+            "size_bytes": f.stat().st_size,
+            "solution_sec": round(sol_elapsed, 3),
+            "naive_sec": round(naive_elapsed, 3),
+            "naive_tle": naive_tle,
+        })
+        if naive_tle:
+            naive_tle_on.append(f.name)
+            strong = True
+        elif sol_elapsed > 0 and naive_elapsed >= 5 * sol_elapsed:
+            strong = True
+
+    if not strong:
+        return {
+            "success": False,
+            "message": (
+                f"数据太弱：最大的 {len(inputs)} 个测试点上 naive 全部在时限（{tl_ms}ms）内通过"
+                "且不明显慢于标程。请增大 generator 的最大规模测试点（非对拍模式），使暴力解无法通过，"
+                "然后重新 generate_test_data、validate_inputs、run_solution 并重跑本检查"
+            ),
+            "details": details,
+        }
+
+    return {
+        "success": True,
+        "message": f"数据强度检查通过：naive 在 {', '.join(naive_tle_on) or '大数据上明显慢于标程'} 上超时/显著慢于标程",
+        "naive_tle_on": naive_tle_on,
+        "details": details,
+    }
+
+
+# ─── 12. final_check ─────────────────────────────────────────────────────────
+
+def _extract_samples(problem_md: str) -> list[tuple[str, str]]:
+    """
+    Extract (sample_input, sample_output) pairs from problem.md.
+    Matches headings containing 样例/示例 + 输入|输出 followed by a code fence.
+    """
+    import re
+    blocks = re.findall(
+        r"^#{2,4}[^\n]*?(输入|输出)[^\n]*\n+```[^\n]*\n(.*?)```",
+        problem_md, re.MULTILINE | re.DOTALL,
+    )
+    samples = []
+    pending_input = None
+    for kind, body in blocks:
+        if kind == "输入":
+            pending_input = body
+        elif kind == "输出" and pending_input is not None:
+            samples.append((pending_input, body))
+            pending_input = None
+    return samples
+
+
+def tool_final_check(problem_dir: Path, waive_bounds: Optional[list] = None) -> dict:
+    """
+    出题完成前的最终确定性检查：
+    1. 必需文件齐全（problem.md/solution.cpp/generator.cpp/validator.cpp/naive.cpp/problem.yaml；SPJ 时含 checker）
+    2. inputs 与 outputs 一一配对，且与 problem.yaml cases 一致
+    3. 题面样例：样例输入必须通过 validator 且 solution 的输出与样例输出一致（SPJ 用 checker 判）
+    4. 边界覆盖：validator 报告的未触达边界必须为空（可用 waive_bounds 显式豁免并说明理由）
+    5. 数据强度：check_data_strength 必须通过
+    全部通过后把 validation 结果回填 problem.yaml。
+    """
+    import yaml
+
+    base = problem_dir.resolve()
+    problems = []
+
+    # 1. required files
+    required = ["problem.md", "solution.cpp", "generator.cpp", "validator.cpp", "naive.cpp", "problem.yaml"]
+    meta = _load_problem_yaml(problem_dir)
+    if meta is None:
+        problems.append("problem.yaml 缺失或不合法，请先调用 write_metadata")
+        meta = {}
+    is_spj = (meta.get("checker") or {}).get("type") == "testlib"
+    if is_spj:
+        required.append("checker.cpp")
+    for name in required:
+        if not (base / name).exists():
+            problems.append(f"缺少文件 {name}")
+    if is_spj and not (base / "bin" / "checker").exists():
+        problems.append("checker.cpp 未编译为 bin/checker")
+
+    # 2. inputs/outputs pairing vs problem.yaml cases
+    input_stems = {f.stem for f in (base / "inputs").glob("*.in")} if (base / "inputs").exists() else set()
+    output_stems = {f.stem for f in (base / "outputs").glob("*.out")} if (base / "outputs").exists() else set()
+    if not input_stems:
+        problems.append("inputs/ 为空")
+    elif input_stems != output_stems:
+        problems.append(f"inputs 与 outputs 不配对（{len(input_stems)} in / {len(output_stems)} out）")
+    cases = meta.get("cases") or []
+    if cases and len(cases) != len(input_stems):
+        problems.append(f"problem.yaml cases 数量（{len(cases)}）与 inputs（{len(input_stems)}）不一致，请重新 write_metadata")
+
+    # 3. samples consistency
+    sample_result = {"count": 0, "passed": 0}
+    md_path = base / "problem.md"
+    sol_bin = base / "bin" / "solution"
+    val_bin = base / "bin" / "validator"
+    if md_path.exists() and sol_bin.exists():
+        samples = _extract_samples(md_path.read_text(encoding="utf-8", errors="replace"))
+        sample_result["count"] = len(samples)
+        if not samples:
+            problems.append("problem.md 中未找到可解析的样例（需要 '## 样例输入/样例输出' + 代码块格式）")
+        for idx, (sin, sout) in enumerate(samples, 1):
+            if not sin.endswith("\n"):
+                sin += "\n"
+            # validator on sample
+            val_src = base / "validator.cpp"
+            new_style = val_src.exists() and "registerValidation" in val_src.read_text(
+                encoding="utf-8", errors="replace")
+            if val_bin.exists():
+                if new_style:
+                    vcode, _, vstderr = _run_cmd([str(val_bin)], cwd=str(base), stdin_data=sin, timeout=10)
+                else:
+                    tmp = base / ".judge" / f"sample{idx}.in"
+                    tmp.parent.mkdir(exist_ok=True)
+                    tmp.write_text(sin)
+                    vcode, _, vstderr = _run_cmd([str(val_bin), str(tmp)], cwd=str(base), timeout=10)
+                if vcode != 0:
+                    problems.append(f"样例 {idx} 未通过 validator: {vstderr[:150]}")
+                    continue
+            scode, s_out, s_err = _run_cmd([str(sol_bin)], cwd=str(base), stdin_data=sin, timeout=10)
+            if scode != 0:
+                problems.append(f"样例 {idx}: solution 运行失败 (exit={scode}): {s_err[:150]}")
+                continue
+            if (base / "bin" / "checker").exists():
+                verdict, cmsg = _run_checker(problem_dir, sin, s_out, sout)
+                ok = verdict == "AC"
+                if not ok:
+                    problems.append(f"样例 {idx}: checker 判 {verdict}: {cmsg[:150]}")
+            else:
+                ok = _token_compare(s_out, sout)
+                if not ok:
+                    problems.append(
+                        f"样例 {idx}: solution 输出与题面样例输出不一致 "
+                        f"(solution: {s_out.strip()[:80]!r} vs 题面: {sout.strip()[:80]!r})"
+                    )
+            if ok:
+                sample_result["passed"] += 1
+
+    # 4. bounds coverage
+    waived = set(waive_bounds or [])
+    validate_result = tool_validate_inputs(problem_dir)
+    bounds_unhit = []
+    if not validate_result.get("success"):
+        problems.append(f"validate_inputs 未通过: {validate_result.get('message')}")
+    else:
+        bounds_unhit = [b for b in (validate_result.get("bounds_unhit") or []) if b not in waived]
+        if bounds_unhit:
+            problems.append(
+                f"约束边界未触达: {', '.join(bounds_unhit)} —— 请在 generator 中加入命中边界的测试点，"
+                "或用 waive_bounds 参数显式豁免（需说明理由）"
+            )
+
+    # 5. data strength
+    strength = tool_check_data_strength(problem_dir)
+    if not strength.get("success"):
+        problems.append(f"数据强度检查未通过: {strength.get('message')}")
+
+    if problems:
+        return {
+            "success": False,
+            "message": f"final_check 未通过（{len(problems)} 项）",
+            "problems": problems,
+            "samples": sample_result,
+        }
+
+    # backfill validation block into problem.yaml
+    if meta:
+        meta["validation"] = {
+            "validator_passed": True,
+            "bounds_unhit": [],
+            "waived_bounds": sorted(waived),
+            "samples": sample_result,
+            "data_strength": {"passed": True, "naive_tle_on": strength.get("naive_tle_on", [])},
+        }
+        (base / "problem.yaml").write_text(
+            yaml.safe_dump(meta, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+    return {
+        "success": True,
+        "message": f"final_check 全部通过（样例 {sample_result['passed']}/{sample_result['count']}，"
+                   f"测试点 {len(input_stems)} 组，数据强度 OK）",
+        "samples": sample_result,
+    }
+
+
+# ─── 13. web_search (stub — 由 agent.py 实现) ───────────────────────────────
 # web_search 不在此文件实现，因为它不需要沙盒，由 agent.py 直接处理。
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -627,6 +939,8 @@ TOOL_DISPATCHER = {
                                memory_limit_mb=args.get("memory_limit_mb"),
                                subtasks=args.get("subtasks"),
                                provider=args.get("provider", "")),
+    "check_data_strength": lambda pd, args: tool_check_data_strength(pd),
+    "final_check":         lambda pd, args: tool_final_check(pd, waive_bounds=args.get("waive_bounds")),
 }
 
 
@@ -672,6 +986,12 @@ class Pipeline:
         ]
         if not skip_stress:
             steps.append(("stress_test", lambda: self._step_stress(stress_iterations)))
+        # 质量检查步骤：需要 problem.yaml（write_metadata 产物），存量题目缺失时跳过并警告
+        if (self.d / "problem.yaml").exists():
+            steps.append(("data_strength", self._step_data_strength))
+            steps.append(("final_check", self._step_final_check))
+        else:
+            print("  ⚠ 无 problem.yaml，跳过 data_strength/final_check（可先用 write_metadata 生成）")
 
         for idx, (name, fn) in enumerate(steps, 1):
             print(f"\n[{idx}/{len(steps)}] {name}...")
@@ -754,6 +1074,24 @@ class Pipeline:
             if r.get("mismatches"):
                 for m in r["mismatches"][:3]:
                     self.errors.append(f"  mismatch at iter {m['iteration']}")
+            return False
+        print(f"  ✓ {r['message']}")
+        return True
+
+    def _step_data_strength(self) -> bool:
+        r = tool_check_data_strength(self.d)
+        if not r["success"]:
+            self.errors.append(f"[DATA_STRENGTH] {r['message']}")
+            return False
+        print(f"  ✓ {r['message']}")
+        return True
+
+    def _step_final_check(self) -> bool:
+        r = tool_final_check(self.d)
+        if not r["success"]:
+            self.errors.append(f"[FINAL_CHECK] {r['message']}")
+            for p in r.get("problems", [])[:5]:
+                self.errors.append(f"  - {p}")
             return False
         print(f"  ✓ {r['message']}")
         return True

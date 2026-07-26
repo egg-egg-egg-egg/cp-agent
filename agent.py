@@ -183,6 +183,25 @@ TOOLS = [
         }
     },
     {
+        "name": "check_data_strength",
+        "description": "数据强度检查：在体积最大的几个测试点上运行 solution 和 naive。要求 solution 在时限内通过，且 naive 至少在一个大测试点上超时（或 ≥5× solution 耗时）。注意：这里 naive 超时是好事（说明数据能卡掉暴力）；全部轻松通过说明数据太弱，需要增大 generator 的最大规模。",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        }
+    },
+    {
+        "name": "final_check",
+        "description": "出题完成前的最终检查：必需文件齐全、inputs/outputs 与 problem.yaml 一致、题面样例与 solution 输出一致（SPJ 用 checker）、约束边界被测试点触达、数据强度通过。全部通过后自动回填 problem.yaml 的 validation 块。总结前必须通过此检查。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "waive_bounds": {"type": "array", "items": {"type": "string"},
+                                 "description": "显式豁免的未触达边界，如 ['a[i].max']，需有正当理由"}
+            },
+        }
+    },
+    {
         "name": "search_problem_db",
         "description": "搜索本地竞赛题库（Codeforces + 洛谷）的相似题，用于原题查重。基于 hybrid 检索：FAISS 向量 + 关键词 + 结构化术语 rerank。构思题目后必须优先调用此工具。",
         "input_schema": {
@@ -245,6 +264,8 @@ SYSTEM_PROMPT = """\
 - run_solution() — 运行标程生成输出
 - stress_test(count) — 对拍验证
 - write_metadata(title, algorithm_tags, ...) — 生成 problem.yaml 元数据
+- check_data_strength() — 数据强度检查（naive 必须被大数据卡掉）
+- final_check(waive_bounds?) — 最终检查（文件/样例/边界覆盖/数据强度）
 - search_problem_db(query, top_k) — 搜索本地题库相似题，用于原题查重
 - web_search(query) — 搜索网页
 
@@ -259,7 +280,9 @@ SYSTEM_PROMPT = """\
 8. 运行 solution 生成输出
 9. 运行 stress_test 对拍验证（轮数以用户要求为准）
 10. 调用 write_metadata 写入 problem.yaml（标题、算法标签、难度、时限/内存限制）
-11. 如果任何步骤出错，检查错误、修复代码、重试
+11. 调用 check_data_strength 确认数据能卡掉暴力（不通过则增大 generator 最大规模并重新造数据）
+12. 调用 final_check 做最终检查，全部通过后才能总结
+13. 如果任何步骤出错，检查错误、修复代码、重试
 
 ## 何时需要 checker（special judge）
 以下情况必须写 checker.cpp 并编译为 bin/checker：
@@ -327,14 +350,14 @@ int main(int argc, char* argv[]) {
 ```
 
 ## validator.cpp 模板（重要：必须这样写）
-validator 被调用时传入文件路径作为 argv[1]，必须用 registerGen + inf.init 读取文件：
+validator 使用 registerValidation，从 stdin 读取输入；给每个变量命名（readInt 的第三个参数），
+系统会据此统计"每个约束的 min/max 边界是否被测试数据触达"：
 ```cpp
 #include "testlib.h"
 #include <iostream>
 using namespace std;
 int main(int argc, char* argv[]) {
-    registerGen(argc, argv, 1);
-    inf.init(argv[1], _input);
+    registerValidation(argc, argv);
     int n = inf.readInt(1, 100000, "n");
     inf.readEoln();
     for (int i = 0; i < n; i++) {
@@ -346,7 +369,8 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 ```
-注意：不要用 registerValidation()，不要用 registerTestlibCmd()，必须用 registerGen + inf.init。
+注意：必须用 registerValidation(argc, argv)（不要用 registerGen/inf.init/registerTestlibCmd）；
+readInt/readLong 必须带变量名参数，否则边界覆盖检查无法工作。
 
 ## 超时处理
 如果 run_solution 返回 timeout: true，说明标程复杂度过高，必须：
@@ -431,10 +455,30 @@ def _search_problem_db(query: str, top_k: int = 8) -> dict:
                 "snippet": content[:350],
             })
 
+        top_score = max((r["final_score"] for r in results), default=0.0)
+        if top_score >= 0.95:
+            dup_verdict = "must_change"
+            verdict_note = (
+                "查重结论【强制】：存在 final_score ≥ 0.95 的高度相似题，必须重写 problem.md 换题，"
+                "并重新调用 search_problem_db 复查。复查通过前，"
+                "generate_test_data/stress_test/write_metadata/final_check 会被拒绝执行。"
+            )
+        elif top_score >= 0.75:
+            dup_verdict = "manual_review"
+            verdict_note = (
+                "查重结论：final_score 在 0.75-0.95 之间，请对比 title/snippet/matched_terms 判断："
+                "若只是同算法模板但叙事/目标/约束不同可继续；若题目模型几乎一样必须换题并重新查重。"
+            )
+        else:
+            dup_verdict = "ok"
+            verdict_note = "查重结论：未发现高度相似题，可以继续。"
+
         return {
             "success": True,
-            "message": f"本地题库查重完成：返回 {len(results)} 条",
+            "message": f"本地题库查重完成：返回 {len(results)} 条，最高相似度 {top_score:.2f}。{verdict_note}",
             "query": query,
+            "top_score": top_score,
+            "dup_verdict": dup_verdict,
             "results": results,
         }
     except Exception as e:
@@ -544,6 +588,10 @@ def call_llm_with_tools(messages: list[dict], system: str, provider: str,
 # AGENT LOOP
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# 查重 must_change 时被拒绝执行的产出类工具
+_DUP_GATED_TOOLS = {"generate_test_data", "stress_test", "write_metadata",
+                    "check_data_strength", "final_check"}
+
 def agent_loop(
     user_prompt: str,
     system_prompt: str = SYSTEM_PROMPT,
@@ -577,6 +625,8 @@ def agent_loop(
     total_input_tokens = 0
     total_output_tokens = 0
     tool_stats: dict[str, int] = {}
+    # 查重门禁状态：must_change 时拦截产出类工具，换题并重新查重后解锁
+    quality_state = {"search_attempted": False, "dup_verdict": None}
 
     print(f"\n🤖 Agent loop started (max {max_iterations} iterations)")
 
@@ -615,7 +665,9 @@ def agent_loop(
                 print(f"  💬 {t[:200]}{'...' if len(t) > 200 else ''}")
 
         if not tool_parts:
-            # No tool calls → validate final problem statement before finishing.
+            # No tool calls → server-side completion gates before accepting the finish.
+            retry_prompt = None
+
             language_check = _validate_problem_md_chinese(problem_dir)
             if not language_check.get("success"):
                 print(f"  ✗ {language_check.get('message')}")
@@ -628,19 +680,50 @@ def agent_loop(
                     "solution.cpp、generator.cpp、validator.cpp、naive.cpp，除非你发现题面与程序不一致。"
                     "修改后再次给出中文总结。"
                 )
+            elif not quality_state["search_attempted"]:
+                print("  ✗ 完成门禁：从未调用 search_problem_db 查重")
+                retry_prompt = (
+                    "最终校验失败：你从未调用 search_problem_db 进行原题查重。"
+                    "请用题目的算法、核心操作和对象作为 query 调用 search_problem_db，"
+                    "确认不与已有题目撞题后再总结。"
+                )
+            elif quality_state["dup_verdict"] == "must_change":
+                print("  ✗ 完成门禁：查重仍为 must_change")
+                retry_prompt = (
+                    "最终校验失败：最近一次查重存在 final_score ≥ 0.95 的高度相似题。"
+                    "必须重写 problem.md 换题、重新生成配套代码和数据，并重新 search_problem_db "
+                    "复查通过后才能结束。"
+                )
+            elif problem_dir is not None:
+                print("  🔎 运行服务器端 final_check ...")
+                fc = execute_tool(problem_dir, "final_check", {})
+                if not fc.get("success"):
+                    problems_list = "\n".join(f"- {p}" for p in fc.get("problems", []))
+                    print(f"  ✗ final_check 未通过: {fc.get('message')}")
+                    retry_prompt = (
+                        f"最终校验失败（final_check）：{fc.get('message')}\n"
+                        f"{problems_list}\n\n"
+                        "请逐项修复上述问题（修复代码/数据后需重新运行受影响的工具，如 compile_cpp、"
+                        "generate_test_data、run_solution、write_metadata），"
+                        "然后调用 final_check 确认通过，再给出中文总结。"
+                    )
+                else:
+                    print(f"  ✓ {fc.get('message')}")
+
+            if retry_prompt:
                 if protocol == "anthropic":
                     messages.append({"role": "assistant", "content": content})
-                    messages.append({"role": "user", "content": retry_prompt})
                 else:
                     messages.append({
                         "role": "assistant",
                         "content": "".join(text_parts) or None,
                     })
-                    messages.append({"role": "user", "content": retry_prompt})
+                messages.append({"role": "user", "content": retry_prompt})
                 continue
 
-            print(f"  ✓ {language_check.get('message')}")
-            # No tool calls and final validation passed → agent is done
+            if language_check.get("success"):
+                print(f"  ✓ {language_check.get('message')}")
+            # No tool calls and all gates passed → agent is done
             print(f"\n  ✅ Agent finished after {iteration} iterations")
             print(f"  Tokens: {total_input_tokens} in / {total_output_tokens} out")
             return {
@@ -670,6 +753,20 @@ def agent_loop(
                     tool_args.get("query", ""),
                     tool_args.get("top_k", 8),
                 )
+                quality_state["search_attempted"] = True
+                if result.get("success"):
+                    quality_state["dup_verdict"] = result.get("dup_verdict")
+            elif (tool_name in _DUP_GATED_TOOLS
+                  and quality_state["dup_verdict"] == "must_change"):
+                result = {
+                    "success": False,
+                    "blocked": True,
+                    "message": (
+                        "查重未通过（存在 final_score ≥ 0.95 的高度相似题），已拒绝执行此工具。"
+                        "必须先重写 problem.md 换一道题，再重新调用 search_problem_db 复查；"
+                        "复查通过后才能继续造数据/对拍/写元数据"
+                    ),
+                }
             else:
                 if problem_dir is None:
                     result = {"success": False, "message": "未指定 problem 目录"}

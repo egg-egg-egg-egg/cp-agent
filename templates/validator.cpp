@@ -1,20 +1,14 @@
-// Validator template — testlib-based
-// Usage: ./validator <input_file>
+// Validator template — testlib-based (registerValidation convention)
+// Usage: ./validator [--testOverviewLogFileName <log>] < input_file
+// 变量名参数（readInt 第三个参数）用于边界覆盖统计，必须填写。
 #include "testlib.h"
 #include <iostream>
 using namespace std;
 
 int main(int argc, char* argv[]) {
-    registerGen(argc, argv, 1);
+    registerValidation(argc, argv);
 
-    if (argc != 2) {
-        cerr << "Usage: " << argv[0] << " <input_file>" << endl;
-        return 1;
-    }
-
-    inf.init(argv[1], _input);
-
-    // Read and validate input
+    // Read and validate input from stdin
     int n = inf.readInt(1, 1000000, "n");
     inf.readEoln();
 
