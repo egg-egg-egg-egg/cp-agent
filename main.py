@@ -59,6 +59,8 @@ def list_providers():
 
 
 def main():
+    import logutil
+    logutil.setup()
     try:
         _main()
     except ConfigError as e:

@@ -6,11 +6,17 @@
 ## 架构
 ```
 cp-agent/
-├── main.py              # CLI 入口
-├── agent.py             # Agent loop（LLM function calling）
-├── pipeline.py          # 9 个沙盒 tool 函数 + Pipeline 类
-├── config.py            # YAML 配置加载器
+├── main.py              # CLI 入口（agent / pipeline / export 三种模式）
+├── agent.py             # Agent loop（LLM function calling + 质量门禁 + 重试退避）
+├── pipeline.py          # 12 个沙盒 tool 函数 + Pipeline 类
+├── export.py            # 洛谷 / Hydro / Polygon 题目包导出
+├── report.py            # result.json 结构化结果 + 产物完整性检查
+├── logutil.py           # 文件日志（cp_agent.log，DEBUG 级）
+├── batch_generate.py    # 批量生成驱动（断点续跑，读 result.json 判成败）
+├── config.py            # YAML 配置加载器（延迟加载 + 校验 + ConfigError）
 ├── config.yaml          # 所有配置（供应商、难度、算法主题）
+├── tests/               # pytest 单元测试（不调 LLM）
+├── .github/workflows/   # CI（ruff + pytest，py3.10/3.12）
 ├── testlib.h            # Codeforces 官方测试库
 ├── problem_db/          # 原题查重系统
 │   ├── __init__.py      # CLI：crawl / enrich / import / build / search
@@ -36,13 +42,14 @@ cp-agent/
 LLM 通过 function calling 自主驱动：
 ```
 1. 构思题目 → 生成 problem.md
-2. search_problem_db 本地题库查重（发现原题则换题）
-3. 生成 solution / generator / validator / naive
-4. 编译 → 生成数据 → 校验 → 求解 → 对拍
-5. 出错则检查修复、重试
+2. search_problem_db 本地题库查重（≥0.95 强制换题，代码级拦截产出类工具）
+3. 生成 solution / generator / validator / naive（多解题另加 checker.cpp）
+4. 编译 → 生成数据 → 校验（含边界覆盖统计）→ 求解 → 对拍
+5. write_metadata 写 problem.yaml → check_data_strength → final_check
+6. 出错则检查修复、重试；完成前服务器端自动跑 final_check，不通过不允许结束
 ```
 
-## 11 个 Tool
+## 14 个 Tool
 
 | Tool | 参数 | 沙盒 | 说明 |
 |------|------|------|------|
@@ -51,11 +58,14 @@ LLM 通过 function calling 自主驱动：
 | `edit_file` | `path`, `old_text`, `new_text` | ✅ | 搜索替换 |
 | `list_files` | `dir` | ✅ | 列目录 |
 | `compile_cpp` | `source`, `output` | ✅ | 编译 C++ |
-| `generate_test_data` | `count` | ✅ | 生成 .in |
-| `validate_inputs` | 无 | ✅ | 校验输入 |
-| `run_solution` | `timeout_sec` | ✅ | 运行标程（超时=标程有误） |
-| `stress_test` | `count` | ✅ | 对拍（naive>10s 算通过，std 超时算失败） |
-| `search_problem_db` | `query`, `top_k` | — | 本地 hybrid 题库查重 |
+| `generate_test_data` | `count` | ✅ | 生成 .in（CLI --test-count 经 tool_defaults 兜底） |
+| `validate_inputs` | 无 | ✅ | 校验输入；registerValidation 时统计边界触达（bounds_unhit） |
+| `run_solution` | `timeout_sec` | ✅ | 运行标程（超时=标程有误；默认时限来自 config） |
+| `stress_test` | `count` | ✅ | 对拍（generator 收到 argv[3]="stress"；有 bin/checker 则 SPJ 判定；naive 超软上限=失败并要求缩小对拍数据） |
+| `write_metadata` | `title`, `algorithm_tags`, … | ✅ | 写 problem.yaml（cases/checker 类型自动扫描） |
+| `check_data_strength` | 无 | ✅ | 最大数据上 naive 必须 TLE（或 ≥5× std），否则数据太弱 |
+| `final_check` | `waive_bounds?` | ✅ | 文件齐全/样例一致/边界覆盖/数据强度，通过后回填 validation 块 |
+| `search_problem_db` | `query`, `top_k` | — | 本地 hybrid 题库查重，返回 dup_verdict |
 | `web_search` | `query` | — | 搜索网页 |
 
 ## LLM 供应商（config.yaml）

@@ -4,6 +4,7 @@ Pipeline: sandboxed tool functions for the Agent.
 All file operations are sandboxed to the problem directory.
 Each tool returns a structured dict for LLM tool_result consumption.
 """
+import logging
 import os
 import subprocess
 import time
@@ -951,6 +952,8 @@ def execute_tool(problem_dir: Path, tool_name: str, args: dict) -> dict:
     try:
         return TOOL_DISPATCHER[tool_name](problem_dir, args)
     except Exception as e:
+        logging.getLogger("cp_agent.pipeline").exception(
+            "tool %s raised (args=%s)", tool_name, args)
         return {"success": False, "message": f"工具执行异常: {e}"}
 
 

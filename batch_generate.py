@@ -175,10 +175,14 @@ def run_one_problem(topic, difficulty, name):
     except Exception as e:
         elapsed = time.time() - start
         log(f"  💥 {name} exception: {e}")
+        import logging
+        logging.getLogger("cp_agent.batch").exception("problem %s raised", name)
         return False, {"failure_reason": str(e), "result_path": None}
 
 
 def main():
+    import logutil
+    logutil.setup()
     parser = argparse.ArgumentParser(description="CP-Agent batch generation")
     parser.add_argument("--limit", type=int, default=None,
                         help="Only run the first N pending problems (smoke test)")

@@ -7,12 +7,15 @@ The LLM autonomously drives the problem generation workflow by calling tools:
   stress_test, search_problem_db, web_search
 """
 import json
+import logging
 from pathlib import Path
 from typing import Optional
 
 import config
 from config import PROBLEMS_DIR
 from pipeline import execute_tool
+
+_logger = logging.getLogger("cp_agent.agent")
 
 
 def _validate_problem_md_chinese(problem_dir: Path) -> dict:
@@ -423,6 +426,7 @@ def _web_search(query: str) -> dict:
 
         return {"success": True, "results": results[:5]}
     except Exception as e:
+        _logger.exception("web_search failed for query=%r", query)
         return {"success": False, "message": f"搜索失败: {e}"}
 
 
@@ -482,12 +486,60 @@ def _search_problem_db(query: str, top_k: int = 8) -> dict:
             "results": results,
         }
     except Exception as e:
+        _logger.exception("search_problem_db failed for query=%r", query)
         return {"success": False, "message": f"本地题库搜索失败: {e}", "query": query}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LLM API — with function calling support
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def _classify_llm_error(e: Exception) -> tuple[bool, float | None]:
+    """
+    Decide whether an SDK exception is retryable and extract a server-suggested
+    wait. Retry: rate limits, connection/timeout errors, 5xx. Don't retry:
+    auth (401/403) and bad requests (4xx other than 429).
+    """
+    name = type(e).__name__
+    status = getattr(e, "status_code", None)
+    retryable = (
+        name in {"RateLimitError", "APIConnectionError", "APITimeoutError",
+                 "InternalServerError"}
+        or (isinstance(status, int) and (status >= 500 or status == 429))
+    )
+    if not retryable:
+        return False, None
+    wait = None
+    headers = getattr(getattr(e, "response", None), "headers", None)
+    if headers:
+        try:
+            wait = float(headers.get("retry-after"))
+        except (TypeError, ValueError):
+            pass
+    return True, wait
+
+
+def _retry_llm_call(fn, max_attempts: int = 5):
+    """Call fn() with exponential backoff on retryable LLM API errors."""
+    import logging
+    import random
+    import time as _time
+
+    logger = logging.getLogger("cp_agent.llm")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fn()
+        except Exception as e:
+            retryable, server_wait = _classify_llm_error(e)
+            if not retryable or attempt == max_attempts:
+                raise
+            wait = server_wait if server_wait is not None else \
+                min(2 * 2 ** (attempt - 1), 60) + random.uniform(0, 1)
+            print(f"  ⏳ LLM 调用失败（{type(e).__name__}），{wait:.1f}s 后重试 ({attempt}/{max_attempts - 1})")
+            logger.warning("LLM call failed (%s), retrying in %.1fs (attempt %d)",
+                           type(e).__name__, wait, attempt)
+            _time.sleep(wait)
+
 
 def _call_anthropic_with_tools(messages: list[dict], system: str, model: str,
                                 api_key: str, max_tokens: int) -> dict:
@@ -497,13 +549,13 @@ def _call_anthropic_with_tools(messages: list[dict], system: str, model: str,
     """
     import anthropic
     client = anthropic.Anthropic(api_key=api_key)
-    resp = client.messages.create(
+    resp = _retry_llm_call(lambda: client.messages.create(
         model=model,
         max_tokens=max_tokens,
         system=system,
         messages=messages,
         tools=TOOLS,
-    )
+    ))
     return {
         "stop_reason": resp.stop_reason,
         "content": [{"type": b.type, **({"id": b.id, "name": b.name, "input": b.input} if b.type == "tool_use" else {"text": b.text})} for b in resp.content],
@@ -523,12 +575,12 @@ def _call_openai_with_tools(messages: list[dict], system: str, model: str,
     # Build messages with system
     api_messages = [{"role": "system", "content": system}] + messages
 
-    resp = client.chat.completions.create(
+    resp = _retry_llm_call(lambda: client.chat.completions.create(
         model=model,
         max_tokens=max_tokens,
         messages=api_messages,
         tools=OPENAI_TOOLS,
-    )
+    ))
 
     choice = resp.choices[0]
     msg = choice.message
@@ -642,6 +694,7 @@ def agent_loop(
             )
         except Exception as e:
             print(f"  ✗ LLM call failed: {e}")
+            _logger.exception("LLM call failed at iteration %d", iteration)
             return {
                 "success": False,
                 "iterations": iteration,
@@ -653,6 +706,7 @@ def agent_loop(
 
         total_input_tokens += resp.get("usage", {}).get("input", 0)
         total_output_tokens += resp.get("usage", {}).get("output", 0)
+        _logger.info("LLM iteration %d: usage=%s", iteration, resp.get("usage"))
 
         content = resp["content"]
 
@@ -773,10 +827,13 @@ def agent_loop(
                 else:
                     result = execute_tool(problem_dir, tool_name, tool_args)
 
-            # Print result summary
+            # Print result summary (full result goes to the file log)
             status = "✓" if result.get("success") else "✗"
             msg = result.get("message", str(result))[:150]
             print(f"    {status} {msg}")
+            _logger.debug("tool %s args=%s result=%s", tool_name,
+                          json.dumps(tool_args, ensure_ascii=False),
+                          json.dumps(result, ensure_ascii=False))
 
             tool_results.append({
                 "tool_use_id": tool_id,
