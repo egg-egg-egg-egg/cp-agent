@@ -107,6 +107,15 @@ def _main():
     parser.add_argument("--pipeline", "-p", type=str, default=None,
                         help="Run pipeline only on existing problem directory (no LLM)")
 
+    # ── Export options ──
+    parser.add_argument("--export", type=str, default=None, metavar="FORMATS",
+                        help="Export a problem dir to judge packages: luogu,hydro,polygon or all "
+                             "(use with --problem-dir; no LLM)")
+    parser.add_argument("--problem-dir", type=str, default=None,
+                        help="Problem directory for --export")
+    parser.add_argument("--export-after", type=str, default=None, metavar="FORMATS",
+                        help="After successful generation, auto-export to these formats (or 'all')")
+
     # ── Info commands ──
     parser.add_argument("--list-topics", action="store_true",
                         help="List available algorithm topics")
@@ -127,6 +136,16 @@ def _main():
 
     if args.list_providers:
         list_providers()
+        return
+
+    # ── Export mode (no LLM) ──
+    if args.export:
+        if not args.problem_dir:
+            parser.error("--export requires --problem-dir")
+        from export import FORMATS, export_problem
+        formats = list(FORMATS) if args.export == "all" else [
+            f.strip() for f in args.export.split(",") if f.strip()]
+        export_problem(Path(args.problem_dir), formats)
         return
 
     # ── Pipeline mode (no LLM) ──
@@ -160,7 +179,11 @@ def _main():
     )
 
     if result.get("success"):
-        print(f"\n🎉 Problem package ready: {result.get('problem_dir', 'unknown')}")
+        if args.export_after and result.get("problem_dir"):
+            from export import FORMATS, export_problem
+            formats = list(FORMATS) if args.export_after == "all" else [
+                f.strip() for f in args.export_after.split(",") if f.strip()]
+            export_problem(Path(result["problem_dir"]), formats)
     else:
         print(f"\n⚠️  Agent 未完成: {result.get('summary', 'unknown error')}")
         sys.exit(1)
