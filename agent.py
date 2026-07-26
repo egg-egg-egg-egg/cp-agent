@@ -535,6 +535,7 @@ def agent_loop(
     messages = [{"role": "user", "content": user_prompt}]
     total_input_tokens = 0
     total_output_tokens = 0
+    tool_stats: dict[str, int] = {}
 
     print(f"\n🤖 Agent loop started (max {max_iterations} iterations)")
 
@@ -555,6 +556,8 @@ def agent_loop(
                 "iterations": iteration,
                 "messages": messages,
                 "summary": f"LLM 调用失败: {e}",
+                "tokens": {"input": total_input_tokens, "output": total_output_tokens},
+                "tool_stats": tool_stats,
             }
 
         total_input_tokens += resp.get("usage", {}).get("input", 0)
@@ -605,6 +608,7 @@ def agent_loop(
                 "messages": messages,
                 "summary": "".join(text_parts),
                 "tokens": {"input": total_input_tokens, "output": total_output_tokens},
+                "tool_stats": tool_stats,
             }
 
         # Process tool calls
@@ -613,6 +617,7 @@ def agent_loop(
             tool_name = tc["name"]
             tool_args = {**(tool_defaults or {}).get(tool_name, {}), **tc["input"]}
             tool_id = tc["id"]
+            tool_stats[tool_name] = tool_stats.get(tool_name, 0) + 1
 
             print(f"  🔧 {tool_name}({json.dumps(tool_args, ensure_ascii=False)[:100]})")
 
@@ -676,6 +681,8 @@ def agent_loop(
         "iterations": max_iterations,
         "messages": messages,
         "summary": f"达到最大迭代次数 {max_iterations}",
+        "tokens": {"input": total_input_tokens, "output": total_output_tokens},
+        "tool_stats": tool_stats,
     }
 
 
@@ -733,12 +740,17 @@ def generate_problem(
     """
     Full agent workflow: LLM drives the entire process via tool calling.
     """
+    import time
+    from datetime import datetime
+
     from config import get_now_model, get_provider
     protocol, cfg = get_provider(provider)
     resolved_model = model or cfg["default_model"]
     resolved_provider = provider or get_now_model()
     if stress_iterations is None:
         stress_iterations = config.DEFAULT_STRESS_ITERATIONS
+    started_at = datetime.now()
+    t_start = time.time()
 
     # Determine problem name: use --name if given, otherwise timestamp
     if not problem_name:
@@ -775,13 +787,66 @@ def generate_problem(
         },
     )
 
-    result["problem_dir"] = str(problem_dir)
-    result["problem_name"] = problem_name
+    # Tighten success: the agent claiming completion is not enough — the
+    # directory must actually contain a complete problem package
+    from report import check_artifacts, write_result_json
+    artifacts = check_artifacts(problem_dir)
+    agent_ok = bool(result.get("success"))
+    success = agent_ok and artifacts["complete"]
 
-    if result["success"]:
+    failure_reason = None
+    if not success:
+        if not agent_ok:
+            failure_reason = result.get("summary", "agent 未完成")
+        else:
+            failure_reason = f"产物不完整: {artifacts}"
+
+    payload = {
+        "success": success,
+        "problem_name": problem_name,
+        "topic": topic,
+        "difficulty": difficulty,
+        "provider": resolved_provider,
+        "model": resolved_model,
+        "started_at": started_at.isoformat(timespec="seconds"),
+        "finished_at": datetime.now().isoformat(timespec="seconds"),
+        "elapsed_sec": round(time.time() - t_start, 1),
+        "iterations": result.get("iterations", 0),
+        "tokens": result.get("tokens", {}),
+        "tool_calls": result.get("tool_stats", {}),
+        "artifacts": artifacts,
+        "failure_reason": failure_reason,
+    }
+
+    # Failed runs must not linger next to good problems: delete empty dirs,
+    # archive non-empty ones under problems/failed/
+    if success:
+        write_result_json(problem_dir, payload)
+    else:
+        has_content = any(problem_dir.iterdir())
+        if not has_content:
+            problem_dir.rmdir()
+            problem_dir = None
+        else:
+            import shutil
+            write_result_json(problem_dir, payload)
+            failed_root = PROBLEMS_DIR / "failed"
+            failed_root.mkdir(parents=True, exist_ok=True)
+            dest = failed_root / f"{problem_name}_{started_at.strftime('%Y%m%d_%H%M%S')}"
+            shutil.move(str(problem_dir), str(dest))
+            problem_dir = dest
+            print(f"  📦 失败产物已归档到 {dest}")
+
+    result["success"] = success
+    result["problem_dir"] = str(problem_dir) if problem_dir else None
+    result["problem_name"] = problem_name
+    if failure_reason:
+        result["summary"] = failure_reason
+
+    if success:
         print(f"\n🎉 Problem package ready: {problem_dir}")
     else:
-        print("\n⚠️  Agent 未完成。查看上方日志了解详情。")
+        print(f"\n⚠️  Agent 未完成: {failure_reason}")
 
     return result
 

@@ -9,6 +9,7 @@ Strategy:
   - Checkpoint saved after each problem to enable resume
 """
 
+import argparse
 import json
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent
+PROBLEMS_DIR = PROJECT_ROOT / "problems"
 CHECKPOINT_FILE = PROJECT_ROOT / "batch_checkpoint.json"
 LOG_FILE = PROJECT_ROOT / "batch_generate.log"
 
@@ -91,10 +93,33 @@ def log(msg):
         f.write(line + "\n")
 
 
+def _load_result_json(name):
+    """
+    Find and read the result.json for a run: either in the problem dir
+    (success) or in the newest problems/failed/{name}_* archive (failure).
+    Returns (result_dict_or_None, result_path_or_None).
+    """
+    direct = PROBLEMS_DIR / name / "result.json"
+    if direct.exists():
+        try:
+            return json.loads(direct.read_text(encoding="utf-8")), direct
+        except (json.JSONDecodeError, OSError):
+            return None, direct
+    archived = sorted((PROBLEMS_DIR / "failed").glob(f"{name}_*/result.json"))
+    if archived:
+        path = archived[-1]
+        try:
+            return json.loads(path.read_text(encoding="utf-8")), path
+        except (json.JSONDecodeError, OSError):
+            return None, path
+    return None, None
+
+
 def run_one_problem(topic, difficulty, name):
     """
-    Run main.py to generate one problem.
-    Returns (success, summary).
+    Run main.py to generate one problem. Success is judged from the
+    result.json the run writes, not from scraping stdout.
+    Returns (success, info_dict).
     """
     cmd = [
         sys.executable, str(PROJECT_ROOT / "main.py"),
@@ -118,38 +143,49 @@ def run_one_problem(topic, difficulty, name):
         )
         elapsed = time.time() - start
 
-        success = result.returncode == 0 and "Problem package ready" in result.stdout
+        rj, rj_path = _load_result_json(name)
+        success = result.returncode == 0 and rj is not None and rj.get("success") is True
 
-        # Extract summary
-        summary = ""
-        for line in result.stdout.splitlines():
-            if "Problem package ready" in line or "Agent 未完成" in line:
-                summary = line.strip()
-                break
+        info = {
+            "failure_reason": (rj or {}).get("failure_reason"),
+            "iterations": (rj or {}).get("iterations"),
+            "tokens": (rj or {}).get("tokens"),
+            "result_path": str(rj_path) if rj_path else None,
+        }
 
         if success:
-            log(f"  ✅ {name} done in {elapsed:.0f}s: {summary}")
+            log(f"  ✅ {name} done in {elapsed:.0f}s "
+                f"({info['iterations']} iterations, tokens={info['tokens']})")
         else:
-            log(f"  ❌ {name} failed (rc={result.returncode}) in {elapsed:.0f}s")
-            # Log last 20 lines of output for debugging
+            reason = info["failure_reason"] or f"rc={result.returncode}, result.json={'缺失' if rj is None else rj}"
+            log(f"  ❌ {name} failed in {elapsed:.0f}s: {reason}")
             stderr_tail = "\n".join(result.stderr.splitlines()[-20:])
-            log(f"  stderr tail:\n{stderr_tail}")
+            if stderr_tail.strip():
+                log(f"  stderr tail:\n{stderr_tail}")
             stdout_tail = "\n".join(result.stdout.splitlines()[-20:])
             log(f"  stdout tail:\n{stdout_tail}")
+            info["failure_reason"] = reason
 
-        return success, summary
+        return success, info
 
     except subprocess.TimeoutExpired:
         elapsed = time.time() - start
         log(f"  ⏰ {name} timed out after {elapsed:.0f}s")
-        return False, "Timeout"
+        return False, {"failure_reason": "Timeout", "result_path": None}
     except Exception as e:
         elapsed = time.time() - start
         log(f"  💥 {name} exception: {e}")
-        return False, str(e)
+        return False, {"failure_reason": str(e), "result_path": None}
 
 
 def main():
+    parser = argparse.ArgumentParser(description="CP-Agent batch generation")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Only run the first N pending problems (smoke test)")
+    parser.add_argument("--only", type=str, default=None,
+                        help="Only run the problem with this exact name")
+    args = parser.parse_args()
+
     queue = build_queue()
     completed, failed = load_checkpoint()
 
@@ -164,6 +200,13 @@ def main():
     log(f"{'='*60}")
 
     pending = [item for item in queue if item["name"] not in completed]
+    if args.only:
+        pending = [item for item in pending if item["name"] == args.only]
+        if not pending:
+            log(f"--only {args.only}: 不在待生成队列中（可能已完成或名字不存在）")
+            return
+    if args.limit is not None:
+        pending = pending[:args.limit]
 
     if not pending:
         log("🎉 All problems already generated!")
@@ -182,7 +225,7 @@ def main():
             f"ETA: {eta/3600:.1f}h | {item['name']} "
             f"(topic={item['topic']}, diff={item['difficulty']}, idx={item['index']})")
 
-        success, summary = run_one_problem(
+        success, info = run_one_problem(
             item["topic"], item["difficulty"], item["name"]
         )
 
@@ -196,7 +239,8 @@ def main():
             failed[item["name"]] = {
                 "topic": item["topic"],
                 "difficulty": item["difficulty"],
-                "summary": summary,
+                "failure_reason": info.get("failure_reason"),
+                "result_path": info.get("result_path"),
                 "timestamp": datetime.now().isoformat(),
             }
 
@@ -219,7 +263,7 @@ def main():
     if failed:
         log("Failed problems:")
         for name, info in failed.items():
-            log(f"  - {name}: {info['summary']}")
+            log(f"  - {name}: {info.get('failure_reason') or info.get('summary', '')}")
 
 
 if __name__ == "__main__":
