@@ -85,6 +85,14 @@ difficulty:
 time_limit_ms: 1000       # 默认时限（毫秒）
 memory_limit_mb: 256      # 默认内存限制（MB）
 
+# --- Dedup (原题查重) ---
+# 检索分数只作触发器：向量相似度（余弦，0-1）≥ dedup_judge_trigger 的候选会连同
+# 新题题面交给独立 LLM 裁判判定是否同一题目模型；门禁以裁判结论为准。
+# 裁判不可用时退回阈值判定（向量相似度 ≥0.85 换题 / 0.7-0.85 人工判断）。
+# 注意：检索结果里的 final_score 是 RRF 排名融合分（只用于排序），不是相似度。
+dedup_judge_trigger: 0.5          # 触发 LLM 裁判的最低向量相似度
+dedup_judge_max_candidates: 5     # 每次最多送裁判的候选数
+
 # --- Stress test ---
 # 对拍测试参数
 stress_iterations: 10000            # 对拍轮数

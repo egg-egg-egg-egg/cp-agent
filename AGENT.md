@@ -193,23 +193,29 @@ python -m problem_db build
 python -m problem_db search "动态规划 背包"
 ```
 
-## 查重流程
+## 查重流程（检索召回 + LLM 裁判判定）
 
-Agent 模式下，LLM 在构思题目后会调用 `search_problem_db` 查重：
-1. 用题目关键词搜索本地 hybrid 索引（FAISS + FTS/LIKE + 术语 rerank）
-2. 最高相似度 > 0.85 → 判定为重复，换题
-3. 0.70-0.85 → 需人工确认或微调
-4. < 0.70 → 通过
+Agent 模式下，`search_problem_db` 的完整流程（`agent._dedup_check`）：
+1. **召回**：hybrid 检索本地索引（FAISS 向量 + FTS/LIKE 关键词 + 术语 rerank）
+2. **触发**：`vector_score`（余弦相似度）≥ `dedup_judge_trigger`（默认 0.5）的候选，
+   取前 `dedup_judge_max_candidates`（默认 5）个
+3. **裁判**：把新题 problem.md + 候选题面摘要交给独立 LLM 裁判，逐候选判断是否
+   【同一题目模型】（抽象掉故事背景后输入结构/约束/目标/解法基本一致）
+4. **门禁**：任一候选判 same_model → `dup_verdict = must_change`，agent_loop 拦截
+   generate_test_data/stress_test/write_metadata/final_check，且完成前不允许结束；
+   裁判调用失败时退回向量相似度阈值兜底（≥0.85 换题 / 0.7-0.85 人工判断）
 
-实际查重示例（2026-06-08 生成的题）：
+**为什么不用分数阈值判定**：`final_score` 是 RRF 排名融合分（量级 ~0.1，仅用于排序）；
+`vector_score` 度量的是叙事相似度而非题目模型等价性。实测：与 P4309 完全同模型的题
+向量相似度仅 0.68，而裸 LIS 与"动态插入 LIS"（不同模型）也能到 0.70——任何单一阈值
+都同时存在漏杀和误杀，因此分数只作召回触发器，判定交给 LLM 裁判。
 
-| 生成题目 | 最相似原题 | 相似度 | 判定 |
-|---------|-----------|--------|------|
-| Weighted Bracket Sequence | CF 3D: Least Cost Bracket Sequence | 0.67 | ⚠️ 高度相似（需换题） |
-| Range GCD Queries | CF 1111E: Tree | 0.57 | ✅ 通过 |
-| Bounded Difference Subsequence | CF 661D: Maximal Difference | 0.69 | ✅ 通过 |
+实测示例（2026-07-26，DeepSeek 裁判）：
+- 复刻 P4309 动态插入 LIS → 裁判判 same_model=true，理由精确到输入输出格式 → must_change ✅
+- 裸 LIS vs 动态 LIS/树上 LIS/LIS 期望 → 裁判逐个说明模型差异后放行 ✅
 
-**经验**：括号序列+代价替换、数组求和等经典套路容易撞题，Agent 应避免。
+**已知盲区**：题库只含洛谷 P/SP 题（无 B 题库入门题）与 CF，裸经典题（如 B3637 裸 LIS）
+可能不在召回结果里；经典套路仍建议 Agent 主动规避。
 
 ## 已知问题
 1. testlib.h 在 problem_dir 里找不到（在项目根目录），Agent 不知道

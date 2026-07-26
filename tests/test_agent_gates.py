@@ -26,8 +26,8 @@ def test_dup_gate_blocks_and_unblocks(tmp_problem_dir, tmp_config, monkeypatch):
         {"success": True, "dup_verdict": "must_change", "message": "撞题", "results": []},
         {"success": True, "dup_verdict": "ok", "message": "ok", "results": []},
     ])
-    monkeypatch.setattr(agent_mod, "_search_problem_db",
-                        lambda q, k=8: next(search_results))
+    monkeypatch.setattr(agent_mod, "_dedup_check",
+                        lambda pd, q, k=8, llm_kwargs=None: next(search_results))
 
     executed = []
     monkeypatch.setattr(agent_mod, "execute_tool",
@@ -56,7 +56,8 @@ def test_completion_requires_search(tmp_problem_dir, tmp_config, monkeypatch):
     monkeypatch.setattr(agent_mod, "execute_tool",
                         lambda pd, name, args: {"success": True, "message": "ok"})
     monkeypatch.setattr(agent_mod, "_search_problem_db",
-                        lambda q, k=8: {"success": True, "dup_verdict": "ok", "results": []})
+                        lambda q, k=8: {"success": True, "message": "检索完成",
+                                        "top_score": 0.0, "results": []})
 
     responses = [
         [{"type": "text", "text": "总结"}],                    # blocked: never searched
@@ -72,7 +73,8 @@ def test_completion_requires_search(tmp_problem_dir, tmp_config, monkeypatch):
 def test_completion_blocked_by_final_check(tmp_problem_dir, tmp_config, monkeypatch):
     (tmp_problem_dir / "problem.md").write_text(CHINESE_MD, encoding="utf-8")
     monkeypatch.setattr(agent_mod, "_search_problem_db",
-                        lambda q, k=8: {"success": True, "dup_verdict": "ok", "results": []})
+                        lambda q, k=8: {"success": True, "message": "检索完成",
+                                        "top_score": 0.0, "results": []})
 
     fc_results = iter([
         {"success": False, "message": "final_check 未通过", "problems": ["缺少文件 problem.yaml"]},

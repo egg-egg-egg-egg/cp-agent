@@ -206,7 +206,7 @@ TOOLS = [
     },
     {
         "name": "search_problem_db",
-        "description": "搜索本地竞赛题库（Codeforces + 洛谷）的相似题，用于原题查重。基于 hybrid 检索：FAISS 向量 + 关键词 + 结构化术语 rerank。构思题目后必须优先调用此工具。",
+        "description": "原题查重：hybrid 检索本地题库（Codeforces + 洛谷）召回相似题后，系统自动用独立 LLM 裁判比对你的 problem.md 与高分候选，判定是否同一题目模型。必须先写好 problem.md 再调用。裁判判定撞题（must_change）时会拦截后续造数据/对拍等步骤。",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -310,10 +310,14 @@ int main(int argc, char* argv[]) {
 注意：写了 checker 的题，naive.cpp 也必须输出合法解（对拍时 naive 输出作为参照答案传给 checker）。
 
 ## 查重判定
-- search_problem_db 返回的 final_score 越高越相似；重点看 title、source、source_id、matched_terms 和 snippet
-- final_score >= 0.95 且题目模型/操作相近：视为高风险撞题，必须换题
-- final_score 0.75-0.95：人工判断相似点，若只是同算法模板但叙事/目标/约束不同可以继续，否则换题
-- final_score < 0.75：通常可继续，但仍需避开明显同题
+- 必须先写好 problem.md 再调用 search_problem_db：系统会自动把相似度达到触发线的候选题
+  连同你的 problem.md 交给独立的 LLM 裁判，判断是否为【同一题目模型】（抽象掉故事背景后，
+  输入结构、约束、目标函数和解法基本一致）
+- 裁判判定 must_change 时：必须换题（换问题模型，不是换故事皮）重写 problem.md，
+  再重新 search_problem_db 复查；复查通过前造数据/对拍/元数据/最终检查都会被拒绝
+- 检索分数（final_score 排序分 / vector_score 向量相似度）只是召回信号，不是判定依据；
+  请优先看返回结果中裁判给出的逐候选理由
+- 建议用多角度 query 查重（算法+核心操作、目标函数、输入结构各查一次）
 
 ## 重要规则
 - problem.md 必须使用中文撰写。标题、题目描述、输入格式、输出格式、样例、样例解释、约束和题解说明都必须是中文；可以保留必要的英文变量名、数学符号和代码块
@@ -459,35 +463,175 @@ def _search_problem_db(query: str, top_k: int = 8) -> dict:
                 "snippet": content[:350],
             })
 
-        top_score = max((r["final_score"] for r in results), default=0.0)
-        if top_score >= 0.95:
-            dup_verdict = "must_change"
-            verdict_note = (
-                "查重结论【强制】：存在 final_score ≥ 0.95 的高度相似题，必须重写 problem.md 换题，"
-                "并重新调用 search_problem_db 复查。复查通过前，"
-                "generate_test_data/stress_test/write_metadata/final_check 会被拒绝执行。"
-            )
-        elif top_score >= 0.75:
-            dup_verdict = "manual_review"
-            verdict_note = (
-                "查重结论：final_score 在 0.75-0.95 之间，请对比 title/snippet/matched_terms 判断："
-                "若只是同算法模板但叙事/目标/约束不同可继续；若题目模型几乎一样必须换题并重新查重。"
-            )
-        else:
-            dup_verdict = "ok"
-            verdict_note = "查重结论：未发现高度相似题，可以继续。"
-
+        # final_score 是 RRF 排名融合分（仅用于排序，量级 ~0.1）；
+        # vector_score 是余弦相似度（0-1），才是可判读的相似度信号
+        top_vector = max((r["vector_score"] for r in results), default=0.0)
         return {
             "success": True,
-            "message": f"本地题库查重完成：返回 {len(results)} 条，最高相似度 {top_score:.2f}。{verdict_note}",
+            "message": f"本地题库检索完成：返回 {len(results)} 条，最高向量相似度 {top_vector:.2f}",
             "query": query,
-            "top_score": top_score,
-            "dup_verdict": dup_verdict,
+            "top_vector_score": top_vector,
             "results": results,
         }
     except Exception as e:
         _logger.exception("search_problem_db failed for query=%r", query)
         return {"success": False, "message": f"本地题库搜索失败: {e}", "query": query}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEDUP JUDGE — LLM 裁判判定是否同一题目模型
+# ═══════════════════════════════════════════════════════════════════════════════
+# 通用 embedding 度量的是叙事相似度而非题目模型等价性（实测撞题案例 final_score
+# 仅 0.67），因此分数只作召回触发器，判定交给独立的 LLM 裁判。
+
+_JUDGE_SYSTEM_PROMPT = """\
+你是算法竞赛题目查重裁判。给你一道"新题"的题面和若干候选原题，逐个判断候选题与新题是否为【同一题目模型】。
+
+同一题目模型的标准：抽象掉故事背景后，输入结构、核心约束、目标函数和预期解法基本一致——
+即熟悉候选题的选手可以把做法和结论直接搬到新题上。
+注意：仅算法/数据结构相同（都是 DP、都用线段树）但问题本身不同，【不算】同一题目模型。
+候选题 snippet 可能不完整，请基于可见信息做最合理的判断；信息严重不足时倾向 same_model=false。
+
+只输出一个 JSON 对象，不要输出任何其它文字，格式：
+{"judgements": [{"index": 1, "same_model": true, "reason": "一句话理由"}, ...]}
+judgements 必须覆盖每个候选题的 index。"""
+
+
+def _parse_judge_response(text: str) -> list[dict]:
+    """Extract the judgements list from the judge LLM's output. Raises on failure."""
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end <= start:
+        raise ValueError(f"裁判输出中未找到 JSON: {text[:200]!r}")
+    data = json.loads(text[start:end + 1])
+    judgements = data.get("judgements")
+    if not isinstance(judgements, list):
+        raise ValueError("裁判 JSON 缺少 judgements 列表")
+    return judgements
+
+
+def _call_llm_text(system: str, user: str, provider: Optional[str] = None,
+                   model: Optional[str] = None, base_url: Optional[str] = None,
+                   api_key: Optional[str] = None, max_tokens: int = 2000) -> str:
+    """Plain text LLM call (no tools) using the same provider routing/retry."""
+    from config import get_provider, resolve_api_key
+
+    protocol, cfg = get_provider(provider)
+    resolved_model = model or cfg["default_model"]
+    resolved_base_url = base_url or cfg["base_url"]
+    resolved_api_key = resolve_api_key(cfg, cli_key=api_key, provider_name=provider or "")
+
+    if protocol == "anthropic":
+        import anthropic
+        client = anthropic.Anthropic(api_key=resolved_api_key)
+        resp = _retry_llm_call(lambda: client.messages.create(
+            model=resolved_model, max_tokens=max_tokens, system=system,
+            messages=[{"role": "user", "content": user}]))
+        return "".join(b.text for b in resp.content if b.type == "text")
+    else:
+        from openai import OpenAI
+        client = OpenAI(base_url=resolved_base_url, api_key=resolved_api_key)
+        resp = _retry_llm_call(lambda: client.chat.completions.create(
+            model=resolved_model, max_tokens=max_tokens,
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": user}]))
+        return resp.choices[0].message.content or ""
+
+
+def _threshold_fallback_verdict(top_vector_score: float) -> tuple[str, str]:
+    """Score-threshold verdict on cosine similarity, used only when the LLM judge is unavailable."""
+    if top_vector_score >= 0.85:
+        return "must_change", "退回阈值判定：向量相似度 ≥ 0.85，视为撞题，必须换题并重新查重。"
+    if top_vector_score >= 0.7:
+        return "manual_review", (
+            "退回阈值判定：向量相似度在 0.7-0.85 之间，请自行对比 snippet 判断是否同一题目模型；"
+            "若几乎一样必须换题并重新查重。"
+        )
+    return "ok", "退回阈值判定：相似度较低，可以继续。"
+
+
+def _dedup_check(problem_dir: Optional[Path], query: str, top_k: int = 8,
+                 llm_kwargs: Optional[dict] = None) -> dict:
+    """
+    完整查重：hybrid 检索召回 → 高分候选交给独立 LLM 裁判判定是否同一题目模型。
+    返回检索结果 + dup_verdict（must_change / manual_review / ok）+ 裁判理由。
+    """
+    retrieval = _search_problem_db(query, top_k)
+    if not retrieval.get("success"):
+        return retrieval
+
+    trigger = config.DEDUP_JUDGE_TRIGGER
+    candidates = sorted(
+        (r for r in retrieval["results"] if r["vector_score"] >= trigger),
+        key=lambda r: r["vector_score"], reverse=True,
+    )[:config.DEDUP_JUDGE_MAX_CANDIDATES]
+
+    if not candidates:
+        retrieval["dup_verdict"] = "ok"
+        retrieval["message"] += f"。查重结论：无候选达到裁判触发线（向量相似度 ≥ {trigger}），可以继续。"
+        return retrieval
+
+    statement = ""
+    if problem_dir is not None:
+        md = Path(problem_dir) / "problem.md"
+        if md.exists():
+            statement = md.read_text(encoding="utf-8", errors="replace")[:4000]
+    if not statement:
+        retrieval["dup_verdict"] = "manual_review"
+        retrieval["message"] += (
+            f"。有 {len(candidates)} 个候选达到裁判触发线，但 problem.md 尚未写入，无法比对。"
+            "请先写好 problem.md 再重新调用 search_problem_db 完成裁判查重。"
+        )
+        return retrieval
+
+    cand_text = "\n\n".join(
+        f"候选 {i}（向量相似度 {c['vector_score']:.2f}，来源 {c['source']} {c['source_id']}）\n"
+        f"标题：{c['title']}\n题面摘要：{c['snippet']}"
+        for i, c in enumerate(candidates, 1)
+    )
+    judge_user = f"【新题题面】\n{statement}\n\n【候选原题（共 {len(candidates)} 个）】\n{cand_text}"
+
+    try:
+        raw = _call_llm_text(_JUDGE_SYSTEM_PROMPT, judge_user, **(llm_kwargs or {}))
+        judgements = _parse_judge_response(raw)
+    except Exception as e:
+        _logger.exception("dedup judge failed for query=%r", query)
+        verdict, note = _threshold_fallback_verdict(retrieval["top_vector_score"])
+        retrieval["dup_verdict"] = verdict
+        retrieval["judge_error"] = str(e)
+        retrieval["message"] += f"。LLM 裁判调用失败（{e}），{note}"
+        return retrieval
+
+    duplicates = []
+    for j in judgements:
+        try:
+            idx = int(j.get("index", 0))
+        except (TypeError, ValueError):
+            continue
+        if j.get("same_model") and 1 <= idx <= len(candidates):
+            c = candidates[idx - 1]
+            duplicates.append({
+                "title": c["title"], "source": c["source"], "source_id": c["source_id"],
+                "url": c["url"], "vector_score": c["vector_score"],
+                "reason": str(j.get("reason", ""))[:200],
+            })
+
+    retrieval["judgements"] = judgements
+    if duplicates:
+        dup_desc = "；".join(f"《{d['title']}》({d['source']} {d['source_id']}): {d['reason']}"
+                             for d in duplicates)
+        retrieval["dup_verdict"] = "must_change"
+        retrieval["duplicates"] = duplicates
+        retrieval["message"] += (
+            f"。查重结论【强制】：LLM 裁判判定与 {len(duplicates)} 道原题为同一题目模型——{dup_desc}。"
+            "必须重写 problem.md 换题（换问题模型，不是换故事皮），并重新调用 search_problem_db 复查；"
+            "复查通过前 generate_test_data/stress_test/write_metadata/final_check 会被拒绝执行。"
+        )
+    else:
+        retrieval["dup_verdict"] = "ok"
+        retrieval["message"] += (
+            f"。查重结论：LLM 裁判确认 {len(candidates)} 个高分候选均非同一题目模型，可以继续。"
+        )
+    return retrieval
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -803,9 +947,12 @@ def agent_loop(
             if tool_name == "web_search":
                 result = _web_search(tool_args.get("query", ""))
             elif tool_name == "search_problem_db":
-                result = _search_problem_db(
+                result = _dedup_check(
+                    problem_dir,
                     tool_args.get("query", ""),
                     tool_args.get("top_k", 8),
+                    llm_kwargs={"provider": provider, "model": model,
+                                "base_url": base_url, "api_key": api_key},
                 )
                 quality_state["search_attempted"] = True
                 if result.get("success"):
