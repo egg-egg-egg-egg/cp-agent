@@ -10,12 +10,8 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from config import (
-    ALGO_TOPICS,
-    DEFAULT_STRESS_ITERATIONS,
-    DIFFICULTY_PRESETS,
-    PROBLEMS_DIR,
-)
+import config
+from config import PROBLEMS_DIR
 from pipeline import execute_tool
 
 
@@ -259,7 +255,7 @@ SYSTEM_PROMPT = """\
 - generator.cpp 必须基于 testlib.h，使用 #include "testlib.h"
 - validator.cpp 必须基于 testlib.h
 - testlib.h 位于项目根目录，编译时 -I 会自动包含
-- generator 必须接收 argv[1]（测试编号）和 argv[2]（总数）作为参数
+- generator 必须接收 argv[1]（测试编号）和 argv[2]（总数）作为参数；argv[3] 可能为 "stress"（对拍模式），此时必须生成小规模数据（如 n ≤ 500），保证 naive 能在几秒内跑完
 - solution.cpp 必须是高效正确的解法，复杂度必须匹配数据规模
 - naive.cpp 必须是暴力/朴素解法（用于对拍）
 - 所有文件操作必须使用相对路径
@@ -275,7 +271,10 @@ int main(int argc, char* argv[]) {
     registerGen(argc, argv, 1);
     int idx = atoi(argv[1]);
     int total = atoi(argv[2]);
-    int n = rnd.next(1, 100);  // 根据难度调整
+    // 对拍模式：stress_test 会传 argv[3]="stress"，此时必须用小规模数据
+    bool stress = (argc > 3 && string(argv[3]) == "stress");
+    int maxN = stress ? 500 : 100000;  // 根据难度调整正式上限
+    int n = rnd.next(1, maxN);
     cout << n << endl;
     for (int i = 0; i < n; i++) {
         cout << rnd.next(1, 1000);
@@ -514,6 +513,7 @@ def agent_loop(
     api_key: Optional[str] = None,
     max_tokens: int = 16000,
     max_iterations: int = 30,
+    tool_defaults: Optional[dict] = None,
 ) -> dict:
     """
     Core agent loop with function calling.
@@ -522,6 +522,10 @@ def agent_loop(
     2. If LLM returns tool_use → execute tool → feed result back → repeat
     3. If LLM returns text → done
     4. Cap at max_iterations to prevent infinite loops
+
+    tool_defaults: {tool_name: {arg: value}} — fallback args merged under the
+    LLM-provided args, so CLI settings (e.g. --test-count) apply even when the
+    LLM omits the argument.
 
     Returns: {"success": bool, "iterations": int, "messages": list, "summary": str}
     """
@@ -607,7 +611,7 @@ def agent_loop(
         tool_results = []
         for tc in tool_parts:
             tool_name = tc["name"]
-            tool_args = tc["input"]
+            tool_args = {**(tool_defaults or {}).get(tool_name, {}), **tc["input"]}
             tool_id = tc["id"]
 
             print(f"  🔧 {tool_name}({json.dumps(tool_args, ensure_ascii=False)[:100]})")
@@ -679,10 +683,11 @@ def agent_loop(
 # MAIN ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def build_user_prompt(topic: str, difficulty: int, extra: str = "") -> str:
+def build_user_prompt(topic: str, difficulty: int, extra: str = "",
+                      test_count: int = 30, stress_iterations: int = 1000) -> str:
     """Build the user prompt for problem generation."""
-    topic_desc = ALGO_TOPICS.get(topic, topic)
-    diff_desc = DIFFICULTY_PRESETS.get(difficulty, f"CF {difficulty}")
+    topic_desc = config.ALGO_TOPICS.get(topic, topic)
+    diff_desc = config.DIFFICULTY_PRESETS.get(difficulty, f"CF {difficulty}")
 
     return f"""\
 请生成一道算法竞赛题目，要求如下：
@@ -702,10 +707,10 @@ def build_user_prompt(topic: str, difficulty: int, extra: str = "") -> str:
 请按照以下流程操作：
 1. 生成所有题目文件（problem.md, solution.cpp, generator.cpp, validator.cpp, naive.cpp）
 2. 编译所有 C++ 文件
-3. 生成测试数据（至少 20 组）
+3. 生成测试数据（{test_count} 组）
 4. 校验输入数据
 5. 运行标程生成输出
-6. 对拍验证（至少 1000 轮）
+6. 对拍验证（{stress_iterations} 轮）
 
 如果任何步骤出错，请检查错误并修复后重试。完成后总结题目信息。
 """
@@ -723,8 +728,7 @@ def generate_problem(
     max_tokens: int = 16000,
     max_iterations: int = 30,
     test_count: int = 30,
-    stress_iterations: int = DEFAULT_STRESS_ITERATIONS,
-    **kwargs,
+    stress_iterations: Optional[int] = None,
 ) -> dict:
     """
     Full agent workflow: LLM drives the entire process via tool calling.
@@ -733,6 +737,8 @@ def generate_problem(
     protocol, cfg = get_provider(provider)
     resolved_model = model or cfg["default_model"]
     resolved_provider = provider or get_now_model()
+    if stress_iterations is None:
+        stress_iterations = config.DEFAULT_STRESS_ITERATIONS
 
     # Determine problem name: use --name if given, otherwise timestamp
     if not problem_name:
@@ -747,10 +753,13 @@ def generate_problem(
     print(f"   Output dir: {problem_dir}")
 
     # Build user prompt with problem dir context
-    user_prompt = build_user_prompt(topic, difficulty, extra)
+    user_prompt = build_user_prompt(topic, difficulty, extra,
+                                    test_count=test_count,
+                                    stress_iterations=stress_iterations)
     user_prompt += f"\n\n所有文件请写入当前目录（相对路径）。文件操作的根目录已设定为：{problem_dir}"
 
-    # Run agent loop
+    # Run agent loop; tool_defaults guarantees CLI values apply even if the
+    # LLM omits count arguments in its tool calls
     result = agent_loop(
         user_prompt=user_prompt,
         problem_dir=problem_dir,
@@ -760,6 +769,10 @@ def generate_problem(
         api_key=api_key,
         max_tokens=max_tokens,
         max_iterations=max_iterations,
+        tool_defaults={
+            "generate_test_data": {"count": test_count},
+            "stress_test": {"count": stress_iterations},
+        },
     )
 
     result["problem_dir"] = str(problem_dir)
@@ -775,9 +788,10 @@ def generate_problem(
 
 # Legacy entry point (for --pipeline mode, no LLM)
 def run_pipeline_only(problem_dir: Path, test_count: int = 30,
-                      stress_iterations: int = DEFAULT_STRESS_ITERATIONS,
+                      stress_iterations: Optional[int] = None,
                       skip_stress: bool = False) -> dict:
     """Run only the pipeline on an existing problem directory (no LLM)."""
     from pipeline import Pipeline
     pipe = Pipeline(problem_dir)
-    return pipe.run_full(test_count=test_count, stress_iterations=stress_iterations)
+    return pipe.run_full(test_count=test_count, stress_iterations=stress_iterations,
+                         skip_stress=skip_stress)

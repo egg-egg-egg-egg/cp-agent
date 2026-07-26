@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from config import CXX, CXX_FLAGS, DEFAULT_STRESS_ITERATIONS, TESTLIB_PATH
+import config
 
 # ─── Sandbox helper ──────────────────────────────────────────────────────────
 
@@ -18,7 +18,8 @@ def _sandbox_resolve(problem_dir: Path, path: str) -> tuple[Path, str]:
     """
     Resolve a relative path inside the problem directory sandbox.
     Returns (resolved_path, error_string). error_string is "" on success.
-    Rejects absolute paths, path traversal (..), and anything outside problem_dir.
+    Rejects absolute paths, path traversal (..), and anything outside problem_dir
+    (including escapes via symlinks).
     """
     # Reject absolute paths
     if os.path.isabs(path):
@@ -29,7 +30,9 @@ def _sandbox_resolve(problem_dir: Path, path: str) -> tuple[Path, str]:
         return Path(""), f"拒绝：不允许路径遍历 '..' in '{path}'"
 
     resolved = (problem_dir / path).resolve()
-    if not str(resolved).startswith(str(problem_dir.resolve())):
+    try:
+        resolved.relative_to(problem_dir.resolve())
+    except ValueError:
         return Path(""), f"拒绝：路径 '{path}' 越界（沙盒限制在 {problem_dir} 内）"
 
     return resolved, ""
@@ -54,7 +57,7 @@ def _run_cmd(cmd: list[str], cwd: str = ".", timeout: int = 60,
 
 def _compile(src: Path, out: Path) -> tuple[bool, str]:
     """Compile a C++ file. Returns (success, message)."""
-    cmd = [CXX, *CXX_FLAGS, f"-I{TESTLIB_PATH.resolve().parent}",
+    cmd = [config.CXX, *config.CXX_FLAGS, f"-I{config.TESTLIB_PATH.resolve().parent}",
            str(src.resolve()), "-o", str(out.resolve())]
     code, stdout, stderr = _run_cmd(cmd, timeout=60)
     if code != 0:
@@ -291,8 +294,9 @@ def tool_validate_inputs(problem_dir: Path) -> dict:
 
 # ─── 8. run_solution ─────────────────────────────────────────────────────────
 
-def tool_run_solution(problem_dir: Path, timeout_sec: int = 5) -> dict:
+def tool_run_solution(problem_dir: Path, timeout_sec: Optional[int] = None) -> dict:
     """运行 solution 为每个输入生成输出。返回 {success, message, files_created, timeout_files}"""
+    timeout_sec = timeout_sec or config.DEFAULT_SOLUTION_TIMEOUT_SEC
     sol_bin = problem_dir.resolve() / "bin" / "solution"
     if not sol_bin.exists():
         return {"success": False, "message": "solution 未编译，请先 compile_cpp solution.cpp -> bin/solution"}
@@ -356,6 +360,11 @@ def tool_run_solution(problem_dir: Path, timeout_sec: int = 5) -> dict:
 
 # ─── 9. stress_test ──────────────────────────────────────────────────────────
 
+def _token_compare(a: str, b: str) -> bool:
+    """Whitespace-insensitive token comparison (testlib wcmp semantics)."""
+    return a.split() == b.split()
+
+
 def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
     """对拍 solution vs naive。返回 {success, message, iterations, mismatches}"""
     import time as _time
@@ -374,48 +383,74 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
     if missing:
         return {"success": False, "message": f"缺少编译产物: {', '.join(missing)}，请先 compile_cpp"}
 
-    TIMEOUT_LIMIT = 10  # 单组测试点总超时（秒）
+    sol_timeout = config.DEFAULT_STRESS_TIMEOUT_SEC
+    naive_timeout = config.DEFAULT_STRESS_NAIVE_TIMEOUT_SEC
+    naive_soft_limit = config.DEFAULT_STRESS_NAIVE_SOFT_LIMIT_SEC
     mismatches = []
+    completed = 0
     for i in range(1, count + 1):
-        # 生成随机输入
+        # 生成随机输入（argv[3]="stress" 提示 generator 使用对拍模式的小规模数据）
         code, inp, _ = _run_cmd(
-            [str(gen_bin), str(i), str(count)],
+            [str(gen_bin), str(i), str(count), "stress"],
             cwd=str(problem_dir.resolve()), timeout=10
         )
         if code != 0:
             continue
 
         # 运行 solution（超时说明标程有误）
-        sol_code, sol_out, _ = _run_cmd(
+        sol_code, sol_out, sol_err = _run_cmd(
             [str(sol_bin)], cwd=str(problem_dir.resolve()),
-            stdin_data=inp, timeout=5
+            stdin_data=inp, timeout=sol_timeout
         )
         if sol_code == -1:  # TIMEOUT
             return {
                 "success": False,
-                "message": f"对拍失败：第 {i} 轮标程超时（>5s）— 标程复杂度有误，需要优化算法",
+                "message": f"对拍失败：第 {i} 轮标程超时（>{sol_timeout}s）— 标程复杂度有误，需要优化算法",
                 "iterations": i,
                 "mismatches": [],
                 "timeout": True,
             }
+        if sol_code != 0:
+            return {
+                "success": False,
+                "message": f"对拍失败：第 {i} 轮标程运行出错 (exit={sol_code}): {sol_err[:200]}",
+                "iterations": i,
+                "mismatches": [],
+                "input": inp[:500],
+            }
+
         # 运行 naive（计时）
         t_naive = _time.time()
-        _, naive_out, _ = _run_cmd(
+        naive_code, naive_out, naive_err = _run_cmd(
             [str(naive_bin)], cwd=str(problem_dir.resolve()),
-            stdin_data=inp, timeout=15
+            stdin_data=inp, timeout=naive_timeout
         )
         naive_elapsed = _time.time() - t_naive
 
-        if naive_elapsed > TIMEOUT_LIMIT:
+        if naive_code == -1 or naive_elapsed > naive_soft_limit:
             return {
-                "success": True,
-                "message": f"对拍通过：{i} 轮一致，第 {i} 轮暴力解耗时 {naive_elapsed:.1f}s 超过 {TIMEOUT_LIMIT}s 上限，提前结束",
+                "success": False,
+                "message": (
+                    f"对拍未完成：第 {i} 轮 naive 耗时 {naive_elapsed:.1f}s 超过 {naive_soft_limit}s 上限，"
+                    f"仅完成 {completed}/{count} 轮。对拍数据规模过大——请修改 generator.cpp，"
+                    "在 argc > 3 && argv[3] == \"stress\" 时生成小规模数据（如 n ≤ 500），"
+                    "然后重新编译 generator 并重跑 stress_test"
+                ),
                 "iterations": i,
                 "mismatches": [],
-                "early_exit": True,
+                "naive_timeout": True,
+            }
+        if naive_code != 0:
+            return {
+                "success": False,
+                "message": f"对拍失败：第 {i} 轮 naive 运行出错 (exit={naive_code}): {naive_err[:200]}",
+                "iterations": i,
+                "mismatches": [],
+                "input": inp[:500],
             }
 
-        if sol_out.strip() != naive_out.strip():
+        completed = i
+        if not _token_compare(sol_out, naive_out):
             mismatches.append({
                 "iteration": i,
                 "input": inp[:500],
@@ -428,8 +463,8 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
     if mismatches:
         return {
             "success": False,
-            "message": f"对拍失败：{len(mismatches)} 个不匹配（共 {count} 轮）",
-            "iterations": count,
+            "message": f"对拍失败：{len(mismatches)} 个不匹配（跑了 {completed} 轮）",
+            "iterations": completed,
             "mismatches": mismatches,
         }
 
@@ -456,7 +491,7 @@ TOOL_DISPATCHER = {
     "compile_cpp":         lambda pd, args: tool_compile_cpp(pd, args["source"], args["output"]),
     "generate_test_data":  lambda pd, args: tool_generate_test_data(pd, args.get("count", 30)),
     "validate_inputs":     lambda pd, args: tool_validate_inputs(pd),
-    "run_solution":        lambda pd, args: tool_run_solution(pd),
+    "run_solution":        lambda pd, args: tool_run_solution(pd, timeout_sec=args.get("timeout_sec")),
     "stress_test":         lambda pd, args: tool_stress_test(pd, args.get("count", 1000)),
 }
 
@@ -483,7 +518,10 @@ class Pipeline:
         self.errors: list[str] = []
 
     def run_full(self, test_count: int = 20,
-                 stress_iterations: int = DEFAULT_STRESS_ITERATIONS) -> dict:
+                 stress_iterations: Optional[int] = None,
+                 skip_stress: bool = False) -> dict:
+        if stress_iterations is None:
+            stress_iterations = config.DEFAULT_STRESS_ITERATIONS
         self.errors = []
         start = time.time()
         results = {}
@@ -493,15 +531,16 @@ class Pipeline:
         print(f"{'='*60}")
 
         steps = [
-            ("compile", self._step_compile),
+            ("compile", lambda: self._step_compile(naive_required=not skip_stress)),
             ("generate", lambda: self._step_generate(test_count)),
             ("validate", self._step_validate),
             ("solve", self._step_solve),
-            ("stress_test", lambda: self._step_stress(stress_iterations)),
         ]
+        if not skip_stress:
+            steps.append(("stress_test", lambda: self._step_stress(stress_iterations)))
 
-        for name, fn in steps:
-            print(f"\n[{steps.index((name,fn))+1}/5] {name}...")
+        for idx, (name, fn) in enumerate(steps, 1):
+            print(f"\n[{idx}/{len(steps)}] {name}...")
             ok = fn()
             results[name] = ok
             if not ok:
@@ -525,7 +564,7 @@ class Pipeline:
         print(f"{'='*60}\n")
         return summary
 
-    def _step_compile(self) -> bool:
+    def _step_compile(self, naive_required: bool = True) -> bool:
         ok = True
         for src_name, out_name in [
             ("generator.cpp", "bin/generator"),
@@ -535,6 +574,10 @@ class Pipeline:
         ]:
             src = self.d / src_name
             if not src.exists():
+                if src_name == "naive.cpp" and not naive_required:
+                    continue
+                self.errors.append(f"[COMPILE] {src_name}: 源文件不存在")
+                ok = False
                 continue
             r = tool_compile_cpp(self.d, src_name, out_name)
             if not r["success"]:
