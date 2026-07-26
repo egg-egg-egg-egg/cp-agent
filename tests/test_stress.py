@@ -79,6 +79,41 @@ def test_naive_runtime_error_fails(tmp_problem_dir, tmp_config, monkeypatch):
     assert "naive 运行出错" in r["message"]
 
 
+def test_checker_ac_passes(tmp_problem_dir, tmp_config, monkeypatch):
+    _make_bins(tmp_problem_dir)
+    (tmp_problem_dir / "bin" / "checker").write_text("")
+    # gen, sol, naive, checker(AC)
+    fake = _scripted_run_cmd([(0, "in", ""), (0, "1 2", ""), (0, "2 1", ""), (0, "", "correct")])
+    monkeypatch.setattr(pipeline, "_run_cmd", fake)
+    r = tool_stress_test(tmp_problem_dir, count=1)
+    assert r["success"] is True
+    assert r["checker_used"] is True
+    # checker invoked with (input, output, answer) file paths
+    checker_cmd = fake.calls[3]
+    assert checker_cmd[0].endswith("bin/checker")
+    assert [p.split("/")[-1] for p in checker_cmd[1:]] == ["in.txt", "out.txt", "ans.txt"]
+
+
+def test_checker_wa_is_mismatch(tmp_problem_dir, tmp_config, monkeypatch):
+    _make_bins(tmp_problem_dir)
+    (tmp_problem_dir / "bin" / "checker").write_text("")
+    fake = _scripted_run_cmd([(0, "in", ""), (0, "1 2", ""), (0, "1 2", ""), (1, "", "wrong answer")])
+    monkeypatch.setattr(pipeline, "_run_cmd", fake)
+    r = tool_stress_test(tmp_problem_dir, count=1)
+    assert r["success"] is False
+    assert r["mismatches"][0]["checker_verdict"] == "WA"
+
+
+def test_checker_fail_aborts(tmp_problem_dir, tmp_config, monkeypatch):
+    _make_bins(tmp_problem_dir)
+    (tmp_problem_dir / "bin" / "checker").write_text("")
+    fake = _scripted_run_cmd([(0, "in", ""), (0, "1", ""), (0, "1", ""), (3, "", "fail: bug in checker")])
+    monkeypatch.setattr(pipeline, "_run_cmd", fake)
+    r = tool_stress_test(tmp_problem_dir, count=5)
+    assert r["success"] is False
+    assert "checker" in r["message"]
+
+
 def test_all_match_passes(tmp_problem_dir, tmp_config, monkeypatch):
     _make_bins(tmp_problem_dir)
     script = [(0, f"in{i}", "") if j == 0 else (0, "42", "")

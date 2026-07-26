@@ -365,6 +365,34 @@ def _token_compare(a: str, b: str) -> bool:
     return a.split() == b.split()
 
 
+_CHECKER_VERDICTS = {0: "AC", 1: "WA", 2: "PE", 3: "FAIL"}
+
+
+def _run_checker(problem_dir: Path, in_text: str, out_text: str,
+                 ans_text: str) -> tuple[str, str]:
+    """
+    Run bin/checker (testlib convention: checker <input> <output> <answer>).
+    Returns (verdict, message) where verdict ∈ AC/WA/PE/FAIL/ERROR.
+    """
+    base = problem_dir.resolve()
+    checker_bin = base / "bin" / "checker"
+    judge_dir = base / ".judge"
+    judge_dir.mkdir(exist_ok=True)
+    in_f, out_f, ans_f = judge_dir / "in.txt", judge_dir / "out.txt", judge_dir / "ans.txt"
+    in_f.write_text(in_text)
+    out_f.write_text(out_text)
+    ans_f.write_text(ans_text)
+
+    code, _, stderr = _run_cmd(
+        [str(checker_bin), str(in_f), str(out_f), str(ans_f)],
+        cwd=str(base), timeout=10
+    )
+    if code == -1:
+        return "ERROR", "checker 超时"
+    verdict = _CHECKER_VERDICTS.get(code, "ERROR")
+    return verdict, stderr.strip()[:300]
+
+
 def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
     """对拍 solution vs naive。返回 {success, message, iterations, mismatches}"""
     import time as _time
@@ -386,6 +414,8 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
     sol_timeout = config.DEFAULT_STRESS_TIMEOUT_SEC
     naive_timeout = config.DEFAULT_STRESS_NAIVE_TIMEOUT_SEC
     naive_soft_limit = config.DEFAULT_STRESS_NAIVE_SOFT_LIMIT_SEC
+    checker_bin = problem_dir.resolve() / "bin" / "checker"
+    use_checker = checker_bin.exists()
     mismatches = []
     completed = 0
     for i in range(1, count + 1):
@@ -450,12 +480,29 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
             }
 
         completed = i
-        if not _token_compare(sol_out, naive_out):
+        if use_checker:
+            # SPJ：naive 输出作为 jury answer，checker 依据 input 判 solution 输出合法性
+            verdict, checker_msg = _run_checker(problem_dir, inp, sol_out, naive_out)
+            if verdict in ("FAIL", "ERROR"):
+                return {
+                    "success": False,
+                    "message": f"对拍失败：第 {i} 轮 checker 自身出错 ({verdict}): {checker_msg} — 请检查 checker.cpp",
+                    "iterations": i,
+                    "mismatches": [],
+                    "checker_used": True,
+                }
+            matched = verdict == "AC"
+        else:
+            checker_msg = ""
+            matched = _token_compare(sol_out, naive_out)
+
+        if not matched:
             mismatches.append({
                 "iteration": i,
                 "input": inp[:500],
                 "solution_output": sol_out.strip()[:200],
                 "naive_output": naive_out.strip()[:200],
+                **({"checker_verdict": verdict, "checker_message": checker_msg} if use_checker else {}),
             })
             if len(mismatches) >= 3:
                 break
@@ -466,13 +513,15 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
             "message": f"对拍失败：{len(mismatches)} 个不匹配（跑了 {completed} 轮）",
             "iterations": completed,
             "mismatches": mismatches,
+            "checker_used": use_checker,
         }
 
     return {
         "success": True,
-        "message": f"对拍通过：{count} 轮全部一致",
+        "message": f"对拍通过：{count} 轮全部一致" + ("（checker 判定）" if use_checker else ""),
         "iterations": count,
         "mismatches": [],
+        "checker_used": use_checker,
     }
 
 

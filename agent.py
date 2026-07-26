@@ -157,7 +157,7 @@ TOOLS = [
     },
     {
         "name": "stress_test",
-        "description": "对拍验证：运行 generator 生成随机输入，分别运行 solution 和 naive，比较输出是否一致。solution 和 naive 必须先编译。",
+        "description": "对拍验证：运行 generator 生成随机输入（自动附加 argv[3]='stress' 提示生成小数据），分别运行 solution 和 naive，比较输出。若已编译 bin/checker 则用 checker 判定（支持多解 SPJ 题），否则按 token 精确比对。solution 和 naive 必须先编译。",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -234,13 +234,35 @@ SYSTEM_PROMPT = """\
 1. 构思题目，生成 problem.md（题面）
 2. 必须用 search_problem_db 搜索题目关键词和核心模型，检查是否与已有题目重复。至少搜索 1 次，建议 query 包含算法、数据结构、核心操作和题目对象
 3. 如果本地题库搜索结果中出现高度相似的题（题目模型、输入输出、目标函数或核心操作几乎一样），必须换一个题目重新构思。web_search 只作为补充资料搜索，不作为主查重工具
-4. 生成 solution.cpp, generator.cpp, validator.cpp, naive.cpp
-5. 编译所有 C++ 文件（输出到 bin/ 目录）
-6. 运行 generator 生成测试数据（至少 20 组，含边界数据）
+4. 生成 solution.cpp, generator.cpp, validator.cpp, naive.cpp；若题目是多解题（见下方"何时需要 checker"），还必须生成 checker.cpp
+5. 编译所有 C++ 文件（输出到 bin/ 目录；checker.cpp 编译为 bin/checker）
+6. 运行 generator 生成测试数据（数量以用户要求为准，含边界数据）
 7. 运行 validator 校验输入数据
 8. 运行 solution 生成输出
-9. 运行 stress_test 对拍验证（至少 1000 轮）
+9. 运行 stress_test 对拍验证（轮数以用户要求为准）
 10. 如果任何步骤出错，检查错误、修复代码、重试
+
+## 何时需要 checker（special judge）
+以下情况必须写 checker.cpp 并编译为 bin/checker：
+- 答案不唯一（构造题、"输出任意一组合法方案"、多个最优解）
+- 浮点输出（需要相对/绝对误差比较）
+- 输出顺序不定（如任意顺序输出集合元素）
+答案唯一的题目禁止写 checker（保持默认 token 比对即可）。
+
+checker.cpp 模板（testlib，调用约定 checker <input> <output> <answer>）：
+```cpp
+#include "testlib.h"
+using namespace std;
+int main(int argc, char* argv[]) {
+    registerTestlibCmd(argc, argv);
+    // inf=测试输入 ouf=被检查的输出 ans=标程答案（仅作参照）
+    // 关键：必须仅凭 inf（+可选 ans 中的目标值）验证 ouf 的合法性/最优性，
+    // 不能与 ans 逐字比较——对拍时 naive 输出只是"某一个"合法解
+    // 不合法时 quitf(_wa, "原因")；合法时：
+    quitf(_ok, "correct");
+}
+```
+注意：写了 checker 的题，naive.cpp 也必须输出合法解（对拍时 naive 输出作为参照答案传给 checker）。
 
 ## 查重判定
 - search_problem_db 返回的 final_score 越高越相似；重点看 title、source、source_id、matched_terms 和 snippet
