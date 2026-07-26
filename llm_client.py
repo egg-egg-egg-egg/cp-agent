@@ -210,3 +210,42 @@ def call_llm_text(system: str, user: str, provider: Optional[str] = None,
         return resp.choices[0].message.content or ""
 
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 协议消息适配 — agent 循环的消息组装与协议解耦
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def append_assistant_turn(messages: list[dict], protocol: str,
+                          content: list[dict], text_parts: list[str],
+                          tool_parts: Optional[list[dict]] = None) -> None:
+    """按协议格式追加 assistant 回合（可含工具调用）。"""
+    if protocol == "anthropic":
+        messages.append({"role": "assistant", "content": content})
+        return
+    msg: dict = {"role": "assistant", "content": "".join(text_parts) or None}
+    if tool_parts:
+        msg["tool_calls"] = [
+            {"id": tc["id"], "type": "function",
+             "function": {"name": tc["name"],
+                          "arguments": json.dumps(tc["input"], ensure_ascii=False)}}
+            for tc in tool_parts
+        ]
+    messages.append(msg)
+
+
+def append_tool_results(messages: list[dict], protocol: str,
+                        tool_results: list[dict]) -> None:
+    """按协议格式追加工具执行结果（tool_results: [{tool_use_id, result}]）。"""
+    if protocol == "anthropic":
+        messages.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": tr["tool_use_id"],
+             "content": json.dumps(tr["result"], ensure_ascii=False)}
+            for tr in tool_results
+        ]})
+    else:
+        for tr in tool_results:
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tr["tool_use_id"],
+                "content": json.dumps(tr["result"], ensure_ascii=False),
+            })

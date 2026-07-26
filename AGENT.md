@@ -7,12 +7,16 @@
 ```
 cp-agent/
 ├── main.py              # CLI 入口（agent / pipeline / export 三种模式）
-├── agent.py             # Agent loop（LLM function calling + 质量门禁 + 重试退避）
-├── pipeline.py          # 12 个沙盒 tool 函数 + Pipeline 类
+├── agent.py             # Agent 循环 + 质量门禁 + generate_problem 入口
+├── llm_client.py        # LLM 协议适配（Anthropic/OpenAI）、重试退避、消息组装适配器
+├── dedup.py             # 原题查重：多路召回 + LLM 裁判
+├── prompts.py           # SYSTEM_PROMPT / build_user_prompt（纯 prompt 资产）
+├── pipeline.py          # 工具注册表（@tool 装饰器）+ 12 个沙盒工具 + Pipeline 类
 ├── export.py            # 洛谷 / Hydro / Polygon 题目包导出
 ├── report.py            # result.json 结构化结果 + 产物完整性检查
 ├── logutil.py           # 文件日志（cp_agent.log，DEBUG 级）
-├── batch_generate.py    # 批量生成驱动（断点续跑，读 result.json 判成败）
+├── gui.py               # PySide6 桌面客户端
+├── batch_generate.py    # 批量生成驱动（断点续跑，考点/难度读自 config）
 ├── config.py            # YAML 配置加载器（延迟加载 + 校验 + ConfigError）
 ├── config.yaml          # 所有配置（供应商、难度、算法主题）
 ├── tests/               # pytest 单元测试（不调 LLM）

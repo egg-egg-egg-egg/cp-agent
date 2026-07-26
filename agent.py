@@ -15,6 +15,7 @@ import config
 from config import PROBLEMS_DIR
 from dedup import dedup_check as _dedup_check
 from dedup import search_problem_db as _search_problem_db  # noqa: F401 — 兼容旧引用
+from llm_client import append_assistant_turn, append_tool_results
 from llm_client import call_llm_with_tools as _llm_call_with_tools
 from pipeline import execute_tool, tool_schemas
 from prompts import SYSTEM_PROMPT, build_user_prompt  # noqa: F401 — 对外再导出
@@ -296,13 +297,7 @@ def agent_loop(
                     print(f"  ✓ {fc.get('message')}")
 
             if retry_prompt:
-                if protocol == "anthropic":
-                    messages.append({"role": "assistant", "content": content})
-                else:
-                    messages.append({
-                        "role": "assistant",
-                        "content": "".join(text_parts) or None,
-                    })
+                append_assistant_turn(messages, protocol, content, text_parts)
                 messages.append({"role": "user", "content": retry_prompt})
                 continue
 
@@ -400,33 +395,9 @@ def agent_loop(
                 "result": result,
             })
 
-        # Add messages in protocol-specific format
-        if protocol == "anthropic":
-            # Anthropic format: assistant with content blocks, then user with tool_results
-            messages.append({"role": "assistant", "content": content})
-            messages.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": tr["tool_use_id"],
-                 "content": json.dumps(tr["result"], ensure_ascii=False)}
-                for tr in tool_results
-            ]})
-        else:
-            # OpenAI format: assistant with tool_calls, then separate tool messages
-            messages.append({
-                "role": "assistant",
-                "content": "".join(text_parts) or None,
-                "tool_calls": [
-                    {"id": tc["id"], "type": "function",
-                     "function": {"name": tc["name"],
-                                  "arguments": json.dumps(tc["input"], ensure_ascii=False)}}
-                    for tc in tool_parts
-                ],
-            })
-            for tr in tool_results:
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tr["tool_use_id"],
-                    "content": json.dumps(tr["result"], ensure_ascii=False),
-                })
+        # Add messages in protocol-specific format (adapters in llm_client)
+        append_assistant_turn(messages, protocol, content, text_parts, tool_parts)
+        append_tool_results(messages, protocol, tool_results)
 
     # Max iterations reached
     print(f"\n  ⚠ Agent reached max iterations ({max_iterations})")
