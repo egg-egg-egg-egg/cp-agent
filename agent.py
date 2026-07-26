@@ -166,6 +166,23 @@ TOOLS = [
         }
     },
     {
+        "name": "write_metadata",
+        "description": "生成 problem.yaml 元数据文件。你提供标题、算法标签、难度和时限/内存限制；测试点列表和 checker 类型由系统扫描目录自动生成。必须在 stress_test 通过之后调用。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "题目标题（中文）"},
+                "algorithm_tags": {"type": "array", "items": {"type": "string"},
+                                   "description": "算法标签，如 ['动态规划', '前缀和']"},
+                "difficulty": {"type": "integer", "description": "Codeforces rating，如 1500"},
+                "time_limit_ms": {"type": "integer", "description": "时间限制（毫秒），默认 1000"},
+                "memory_limit_mb": {"type": "integer", "description": "内存限制（MB），默认 256"},
+                "subtasks": {"type": "array", "description": "可选：子任务列表 [{id, score, cases, constraints}]"}
+            },
+            "required": ["title", "algorithm_tags"]
+        }
+    },
+    {
         "name": "search_problem_db",
         "description": "搜索本地竞赛题库（Codeforces + 洛谷）的相似题，用于原题查重。基于 hybrid 检索：FAISS 向量 + 关键词 + 结构化术语 rerank。构思题目后必须优先调用此工具。",
         "input_schema": {
@@ -227,6 +244,7 @@ SYSTEM_PROMPT = """\
 - validate_inputs() — 校验输入
 - run_solution() — 运行标程生成输出
 - stress_test(count) — 对拍验证
+- write_metadata(title, algorithm_tags, ...) — 生成 problem.yaml 元数据
 - search_problem_db(query, top_k) — 搜索本地题库相似题，用于原题查重
 - web_search(query) — 搜索网页
 
@@ -240,7 +258,8 @@ SYSTEM_PROMPT = """\
 7. 运行 validator 校验输入数据
 8. 运行 solution 生成输出
 9. 运行 stress_test 对拍验证（轮数以用户要求为准）
-10. 如果任何步骤出错，检查错误、修复代码、重试
+10. 调用 write_metadata 写入 problem.yaml（标题、算法标签、难度、时限/内存限制）
+11. 如果任何步骤出错，检查错误、修复代码、重试
 
 ## 何时需要 checker（special judge）
 以下情况必须写 checker.cpp 并编译为 bin/checker：
@@ -806,6 +825,7 @@ def generate_problem(
         tool_defaults={
             "generate_test_data": {"count": test_count},
             "stress_test": {"count": stress_iterations},
+            "write_metadata": {"difficulty": difficulty, "provider": resolved_provider},
         },
     )
 

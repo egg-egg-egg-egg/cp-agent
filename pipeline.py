@@ -525,7 +525,85 @@ def tool_stress_test(problem_dir: Path, count: int = 1000) -> dict:
     }
 
 
-# ─── 10. web_search (stub — 由 agent.py 实现) ───────────────────────────────
+# ─── 10. write_metadata ──────────────────────────────────────────────────────
+
+def tool_write_metadata(problem_dir: Path, title: str, algorithm_tags: list,
+                        difficulty: Optional[int] = None,
+                        time_limit_ms: Optional[int] = None,
+                        memory_limit_mb: Optional[int] = None,
+                        subtasks: Optional[list] = None,
+                        provider: str = "") -> dict:
+    """
+    写入 problem.yaml：LLM 提供语义字段（标题/标签/难度/限制），
+    机械字段（slug、checker 类型、cases 列表）由代码扫描目录生成。
+    """
+    from datetime import date
+
+    import yaml
+
+    base = problem_dir.resolve()
+    if not title or not str(title).strip():
+        return {"success": False, "message": "title 不能为空"}
+    if not algorithm_tags or not isinstance(algorithm_tags, list):
+        return {"success": False, "message": "algorithm_tags 必须是非空列表"}
+
+    inputs = sorted((base / "inputs").glob("*.in")) if (base / "inputs").exists() else []
+    if not inputs:
+        return {"success": False, "message": "inputs/ 为空，请先 generate_test_data 并 run_solution"}
+    cases = []
+    missing = []
+    for f in inputs:
+        out = base / "outputs" / (f.stem + ".out")
+        if not out.exists():
+            missing.append(out.name)
+            continue
+        cases.append({"input": f"inputs/{f.name}", "output": f"outputs/{out.name}"})
+    if missing:
+        return {"success": False,
+                "message": f"缺少输出文件: {', '.join(missing[:5])}{'…' if len(missing) > 5 else ''}，请先 run_solution"}
+
+    has_checker = (base / "checker.cpp").exists() or (base / "bin" / "checker").exists()
+    checker_block = {"type": "testlib", "source": "checker.cpp"} if has_checker else {"type": "builtin"}
+
+    # 保留已有 problem.yaml 中 final_check 回填的 validation 块
+    existing_validation = None
+    yaml_path = base / "problem.yaml"
+    if yaml_path.exists():
+        try:
+            existing = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+            existing_validation = existing.get("validation")
+        except yaml.YAMLError:
+            pass
+
+    meta = {
+        "version": 1,
+        "title": str(title).strip(),
+        "slug": base.name,
+        "algorithm_tags": [str(t) for t in algorithm_tags],
+        "difficulty": int(difficulty) if difficulty else None,
+        "time_limit_ms": int(time_limit_ms or config.DEFAULT_TIME_LIMIT_MS),
+        "memory_limit_mb": int(memory_limit_mb or config.DEFAULT_MEMORY_LIMIT_MB),
+        "checker": checker_block,
+        "cases": cases,
+        "subtasks": subtasks or [],
+        "generated": {"by": "cp-agent", "date": date.today().isoformat(),
+                      **({"provider": provider} if provider else {})},
+    }
+    if existing_validation:
+        meta["validation"] = existing_validation
+
+    yaml_path.write_text(
+        yaml.safe_dump(meta, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+    return {
+        "success": True,
+        "message": f"已写入 problem.yaml（{len(cases)} 个测试点，checker={checker_block['type']}）",
+        "cases": len(cases),
+        "checker_type": checker_block["type"],
+    }
+
+
+# ─── 11. web_search (stub — 由 agent.py 实现) ───────────────────────────────
 # web_search 不在此文件实现，因为它不需要沙盒，由 agent.py 直接处理。
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -542,6 +620,13 @@ TOOL_DISPATCHER = {
     "validate_inputs":     lambda pd, args: tool_validate_inputs(pd),
     "run_solution":        lambda pd, args: tool_run_solution(pd, timeout_sec=args.get("timeout_sec")),
     "stress_test":         lambda pd, args: tool_stress_test(pd, args.get("count", 1000)),
+    "write_metadata":      lambda pd, args: tool_write_metadata(
+                               pd, args.get("title", ""), args.get("algorithm_tags", []),
+                               difficulty=args.get("difficulty"),
+                               time_limit_ms=args.get("time_limit_ms"),
+                               memory_limit_mb=args.get("memory_limit_mb"),
+                               subtasks=args.get("subtasks"),
+                               provider=args.get("provider", "")),
 }
 
 
