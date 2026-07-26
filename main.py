@@ -84,6 +84,12 @@ def _main():
                         help="Problem name (directory name)")
     parser.add_argument("--extra", "-e", type=str, default="",
                         help="Extra requirements for problem generation")
+    parser.add_argument("--idea", type=str, default="",
+                        help="题意完善模式：给定大致题意，系统补全为完整题目（--topic 变为可选）")
+    parser.add_argument("--idea-file", type=str, default=None,
+                        help="从文件读取题意/题面草稿（与 --idea 二选一）")
+    parser.add_argument("--allow-dup", action="store_true",
+                        help="完善模式下题意与题库撞题时继续生成（默认中止）")
 
     # ── LLM provider options ──
     enabled_names = config.list_enabled_provider_choices()
@@ -161,14 +167,24 @@ def _main():
         return
 
     # ── Agent mode (default) ──
-    if not args.topic:
-        parser.error("--topic is required (or use --pipeline or --list-topics)")
+    if args.idea and args.idea_file:
+        parser.error("--idea 与 --idea-file 只能二选一")
+    idea = args.idea
+    if args.idea_file:
+        idea_path = Path(args.idea_file)
+        if not idea_path.exists():
+            parser.error(f"--idea-file 不存在: {idea_path}")
+        idea = idea_path.read_text(encoding="utf-8")
+    if not args.topic and not idea:
+        parser.error("--topic is required (or use --idea/--idea-file, --pipeline, --list-topics)")
 
     from agent import generate_problem
     result = generate_problem(
-        topic=args.topic,
+        topic=args.topic or "",
         difficulty=args.difficulty,
         extra=args.extra,
+        idea=idea,
+        allow_dup=args.allow_dup,
         problem_name=args.name,
         provider=args.provider,
         model=args.model,

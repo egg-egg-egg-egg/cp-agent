@@ -17,6 +17,7 @@ from PySide6.QtCore import QProcess, Qt, QThread, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QFormLayout,
     QGroupBox,
@@ -200,6 +201,12 @@ class GeneratePage(QWidget):
         self.name_edit.setPlaceholderText("留空则用时间戳")
         self.extra = QLineEdit()
         self.extra.setPlaceholderText("如：答案不唯一，输出任意一组合法方案")
+        self.idea = QPlainTextEdit()
+        self.idea.setPlaceholderText(
+            "题意完善模式（可选）：在这里粘贴大致题意或题面草稿，"
+            "系统会在不改变题目模型的前提下补全成完整题目；留空则按考点自由构思")
+        self.idea.setFixedHeight(88)
+        self.allow_dup = QCheckBox("撞题仍继续（--allow-dup，默认撞题即中止）")
         self.test_count = QSpinBox()
         self.test_count.setRange(5, 200)
         self.test_count.setValue(30)
@@ -219,6 +226,8 @@ class GeneratePage(QWidget):
         form.addRow("Provider", self.provider)
         form.addRow("题目名称", self.name_edit)
         form.addRow("额外要求", self.extra)
+        form.addRow("题意描述", self.idea)
+        form.addRow("", self.allow_dup)
         form.addRow("测试点数量", self.test_count)
         form.addRow("对拍轮数", self.stress)
         form.addRow("最大迭代", self.max_iter)
@@ -263,6 +272,10 @@ class GeneratePage(QWidget):
             args += ["--name", self.name_edit.text().strip()]
         if self.extra.text().strip():
             args += ["--extra", self.extra.text().strip()]
+        if self.idea.toPlainText().strip():
+            args += ["--idea", self.idea.toPlainText().strip()]
+            if self.allow_dup.isChecked():
+                args += ["--allow-dup"]
         if self.export_after.currentData():
             args += ["--export-after", self.export_after.currentData()]
 

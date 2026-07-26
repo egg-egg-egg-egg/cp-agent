@@ -317,6 +317,8 @@ int main(int argc, char* argv[]) {
   再重新 search_problem_db 复查；复查通过前造数据/对拍/元数据/最终检查都会被拒绝
 - 检索分数（final_score 排序分 / vector_score 向量相似度）只是召回信号，不是判定依据；
   请优先看返回结果中裁判给出的逐候选理由
+- 完善模式（用户给定题意）下的特殊规则：撞题时不要自行换题——题意是用户给定的，
+  系统会按策略中止任务或降级为警告；你只需如实继续或等待系统指令
 - 建议用多角度 query 查重（算法+核心操作、目标函数、输入结构各查一次）
 
 ## 重要规则
@@ -549,6 +551,25 @@ def _threshold_fallback_verdict(top_vector_score: float) -> tuple[str, str]:
     return "ok", "退回阈值判定：相似度较低，可以继续。"
 
 
+def _statement_recall_queries(statement: str) -> list[str]:
+    """从题面提取短召回 query：标题 + 描述首段（短聚焦查询对向量库召回最有效）。"""
+    lines = [line.strip() for line in statement.splitlines()]
+    title = next((line.lstrip("#").strip() for line in lines if line.startswith("#")), "")
+    body_parts = []
+    in_code = False
+    for line in lines:
+        if line.startswith("```"):
+            in_code = not in_code
+            continue
+        if in_code or line.startswith("#") or not line:
+            continue
+        body_parts.append(line)
+        if sum(len(p) for p in body_parts) >= 200:
+            break
+    desc = " ".join(body_parts)[:200]
+    return [q for q in (title, desc) if q]
+
+
 def _dedup_check(problem_dir: Optional[Path], query: str, top_k: int = 8,
                  llm_kwargs: Optional[dict] = None) -> dict:
     """
@@ -558,6 +579,38 @@ def _dedup_check(problem_dir: Optional[Path], query: str, top_k: int = 8,
     retrieval = _search_problem_db(query, top_k)
     if not retrieval.get("success"):
         return retrieval
+
+    statement = ""
+    if problem_dir is not None:
+        md = Path(problem_dir) / "problem.md"
+        if md.exists():
+            statement = md.read_text(encoding="utf-8", errors="replace")[:4000]
+
+    # 多路召回：LLM 的关键词 query 措辞不稳定，整段题面 embedding 又会稀释语义
+    # （实测同模型原题：标题 query 召回 0.79，整段题面 query 召不回）。
+    # 因此追加"标题"和"描述首段"两路短查询，合并去重取高分。
+    if statement:
+        extra_hits = 0
+        for q2 in _statement_recall_queries(statement):
+            stmt_retrieval = _search_problem_db(q2, top_k)
+            if not stmt_retrieval.get("success"):
+                continue
+            extra_hits += 1
+            merged: dict = {}
+            for r in retrieval["results"] + stmt_retrieval["results"]:
+                key = (r["source"], r["source_id"])
+                if key not in merged or r["vector_score"] > merged[key]["vector_score"]:
+                    merged[key] = r
+            retrieval["results"] = sorted(
+                merged.values(), key=lambda r: r["vector_score"], reverse=True)
+        if extra_hits:
+            retrieval["top_vector_score"] = max(
+                (r["vector_score"] for r in retrieval["results"]), default=0.0)
+            retrieval["message"] = (
+                f"本地题库检索完成（关键词 + 标题 + 题面描述多路召回）："
+                f"合并 {len(retrieval['results'])} 条，"
+                f"最高向量相似度 {retrieval['top_vector_score']:.2f}"
+            )
 
     trigger = config.DEDUP_JUDGE_TRIGGER
     candidates = sorted(
@@ -569,12 +622,6 @@ def _dedup_check(problem_dir: Optional[Path], query: str, top_k: int = 8,
         retrieval["dup_verdict"] = "ok"
         retrieval["message"] += f"。查重结论：无候选达到裁判触发线（向量相似度 ≥ {trigger}），可以继续。"
         return retrieval
-
-    statement = ""
-    if problem_dir is not None:
-        md = Path(problem_dir) / "problem.md"
-        if md.exists():
-            statement = md.read_text(encoding="utf-8", errors="replace")[:4000]
     if not statement:
         retrieval["dup_verdict"] = "manual_review"
         retrieval["message"] += (
@@ -799,6 +846,7 @@ def agent_loop(
     max_tokens: int = 16000,
     max_iterations: int = 30,
     tool_defaults: Optional[dict] = None,
+    dedup_policy: str = "rewrite",
 ) -> dict:
     """
     Core agent loop with function calling.
@@ -811,6 +859,11 @@ def agent_loop(
     tool_defaults: {tool_name: {arg: value}} — fallback args merged under the
     LLM-provided args, so CLI settings (e.g. --test-count) apply even when the
     LLM omits the argument.
+
+    dedup_policy: 查重判 must_change 时的处置——
+      "rewrite"（自由构思模式）：拦截产出类工具并要求换题重写；
+      "abort"（完善模式默认）：题意是用户给定的，立即终止并返回撞题详情；
+      "warn"（完善模式 --allow-dup）：降级为 manual_review，仅保留裁判理由继续。
 
     Returns: {"success": bool, "iterations": int, "messages": list, "summary": str}
     """
@@ -956,7 +1009,29 @@ def agent_loop(
                 )
                 quality_state["search_attempted"] = True
                 if result.get("success"):
-                    quality_state["dup_verdict"] = result.get("dup_verdict")
+                    verdict = result.get("dup_verdict")
+                    if verdict == "must_change" and dedup_policy == "abort":
+                        dup_desc = "；".join(
+                            f"《{d['title']}》({d['source']} {d['source_id']}): {d['reason']}"
+                            for d in result.get("duplicates", [])) or result.get("message", "")
+                        print(f"  ✗ 题意撞题，按 abort 策略终止：{dup_desc[:200]}")
+                        return {
+                            "success": False,
+                            "iterations": iteration,
+                            "messages": messages,
+                            "summary": (f"给定题意与已有原题为同一题目模型：{dup_desc}。"
+                                        "确认无妨可加 --allow-dup 重跑"),
+                            "aborted_dup": True,
+                            "duplicates": result.get("duplicates", []),
+                            "tokens": {"input": total_input_tokens, "output": total_output_tokens},
+                            "tool_stats": tool_stats,
+                        }
+                    if verdict == "must_change" and dedup_policy == "warn":
+                        verdict = "manual_review"
+                        result["dup_verdict"] = "manual_review"
+                        result["message"] += "（--allow-dup 已生效：撞题降级为警告，继续生成）"
+                        print("  ⚠ 题意撞题，--allow-dup 生效，继续")
+                    quality_state["dup_verdict"] = verdict
             elif (tool_name in _DUP_GATED_TOOLS
                   and quality_state["dup_verdict"] == "must_change"):
                 result = {
@@ -1033,19 +1108,43 @@ def agent_loop(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def build_user_prompt(topic: str, difficulty: int, extra: str = "",
-                      test_count: int = 30, stress_iterations: int = 1000) -> str:
-    """Build the user prompt for problem generation."""
-    topic_desc = config.ALGO_TOPICS.get(topic, topic)
+                      test_count: int = 30, stress_iterations: int = 1000,
+                      idea: str = "") -> str:
+    """Build the user prompt for problem generation (自由构思 or 题意完善模式)."""
     diff_desc = config.DIFFICULTY_PRESETS.get(difficulty, f"CF {difficulty}")
 
-    return f"""\
+    if idea:
+        topic_line = ""
+        if topic:
+            topic_desc = config.ALGO_TOPICS.get(topic, topic)
+            topic_line = f"参考算法考点：{topic_desc}\n"
+        header = f"""\
+以下是出题人给定的题意，请把它【完善】成一道完整规范的算法竞赛题目：
+
+【题意】
+{idea}
+
+{topic_line}难度：Codeforces {difficulty} 分（{diff_desc}）
+{f'额外要求：{extra}' if extra else ''}
+
+完善模式规则（重要）：
+- 不得改变题意中的核心题目模型：输入结构、核心约束、目标函数和预期解法必须与题意一致
+- 你可以做的：补充/收紧数据范围、确定时间和内存限制、设计样例、规范和扩写题面表述、补全题解说明
+- 题意中未明确的细节（如数据范围）由你根据难度合理确定
+- 查重发现撞题时不要自行换题，按系统提示处理"""
+    else:
+        topic_desc = config.ALGO_TOPICS.get(topic, topic)
+        header = f"""\
 请生成一道算法竞赛题目，要求如下：
 
 算法考点：{topic_desc}
 难度：Codeforces {difficulty} 分（{diff_desc}）
 {f'额外要求：{extra}' if extra else ''}
 
-请根据难度自行决定数据规模、时间限制和内存限制。
+请根据难度自行决定数据规模、时间限制和内存限制。"""
+
+    return f"""\
+{header}
 
 语言要求：
 - problem.md 必须使用中文撰写
@@ -1066,7 +1165,7 @@ def build_user_prompt(topic: str, difficulty: int, extra: str = "",
 
 
 def generate_problem(
-    topic: str,
+    topic: str = "",
     difficulty: int = 1500,
     extra: str = "",
     problem_name: Optional[str] = None,
@@ -1078,10 +1177,17 @@ def generate_problem(
     max_iterations: int = 30,
     test_count: int = 30,
     stress_iterations: Optional[int] = None,
+    idea: str = "",
+    allow_dup: bool = False,
 ) -> dict:
     """
     Full agent workflow: LLM drives the entire process via tool calling.
+
+    idea 非空时进入题意完善模式：LLM 在不改变核心题目模型的前提下补全题目；
+    撞题时默认中止（allow_dup=True 则降级为警告继续）。
     """
+    if not topic and not idea:
+        raise ValueError("topic 与 idea 至少提供一个")
     import time
     from datetime import datetime
 
@@ -1102,15 +1208,31 @@ def generate_problem(
     problem_dir = PROBLEMS_DIR / problem_name
     problem_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n🤖 CP-Agent: Generating problem on '{topic}' (difficulty: {difficulty})")
+    mode_desc = "completing idea" if idea else f"on '{topic}'"
+    print(f"\n🤖 CP-Agent: Generating problem {mode_desc} (difficulty: {difficulty})")
     print(f"   Provider: {resolved_provider} ({protocol}), Model: {resolved_model}")
     print(f"   Output dir: {problem_dir}")
 
     # Build user prompt with problem dir context
     user_prompt = build_user_prompt(topic, difficulty, extra,
                                     test_count=test_count,
-                                    stress_iterations=stress_iterations)
+                                    stress_iterations=stress_iterations,
+                                    idea=idea)
+
+    # 半成品目录：已有文件视为题意的一部分，要求增量补全而非推倒重写
+    existing = sorted(f.name for f in problem_dir.iterdir()
+                      if f.is_file() and f.name not in ("result.json",))
+    if existing:
+        user_prompt += (
+            f"\n\n注意：目录中已存在以下文件：{', '.join(existing)}。"
+            "请先用 read_file 逐个查看，在其基础上【增量补全】缺失的部分；"
+            "已有内容（尤其是 problem.md 里的题意与设定）视为出题人给定，不得推翻重写，"
+            "只允许修正明显的格式/一致性问题。"
+        )
+
     user_prompt += f"\n\n所有文件请写入当前目录（相对路径）。文件操作的根目录已设定为：{problem_dir}"
+
+    dedup_policy = ("warn" if allow_dup else "abort") if idea else "rewrite"
 
     # Run agent loop; tool_defaults guarantees CLI values apply even if the
     # LLM omits count arguments in its tool calls
@@ -1123,6 +1245,7 @@ def generate_problem(
         api_key=api_key,
         max_tokens=max_tokens,
         max_iterations=max_iterations,
+        dedup_policy=dedup_policy,
         tool_defaults={
             "generate_test_data": {"count": test_count},
             "stress_test": {"count": stress_iterations},
@@ -1147,7 +1270,9 @@ def generate_problem(
     payload = {
         "success": success,
         "problem_name": problem_name,
+        "mode": "idea" if idea else "topic",
         "topic": topic,
+        **({"idea": idea[:500]} if idea else {}),
         "difficulty": difficulty,
         "provider": resolved_provider,
         "model": resolved_model,
@@ -1162,7 +1287,9 @@ def generate_problem(
     }
 
     # Failed runs must not linger next to good problems: delete empty dirs,
-    # archive non-empty ones under problems/failed/
+    # archive non-empty ones under problems/failed/.
+    # 例外：目录里有用户预先放置的文件（半成品完善模式）时，失败也原地保留，
+    # 不能把用户的草稿挪走。
     if success:
         write_result_json(problem_dir, payload)
     else:
@@ -1170,6 +1297,9 @@ def generate_problem(
         if not has_content:
             problem_dir.rmdir()
             problem_dir = None
+        elif existing:
+            write_result_json(problem_dir, payload)
+            print(f"  📄 失败详情已写入 {problem_dir / 'result.json'}（目录含用户草稿，原地保留）")
         else:
             import shutil
             write_result_json(problem_dir, payload)

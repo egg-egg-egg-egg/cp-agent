@@ -86,6 +86,11 @@ class Embedder:
         return vec[0].astype(np.float32)
 
 
+_EMBEDDER_CACHE: dict = {}
+
+
 def get_embedder(model_key: str = DEFAULT_MODEL) -> Embedder:
-    """Get an embedder instance."""
-    return Embedder(model_key=model_key)
+    """Get an embedder instance (cached per model_key — model load is expensive)."""
+    if model_key not in _EMBEDDER_CACHE:
+        _EMBEDDER_CACHE[model_key] = Embedder(model_key=model_key)
+    return _EMBEDDER_CACHE[model_key]

@@ -104,6 +104,36 @@ def test_missing_statement_defers_judging(tmp_problem_dir, tmp_config, monkeypat
     assert "problem.md" in r["message"]
 
 
+def test_statement_recall_queries():
+    from agent import _statement_recall_queries
+    md = "# 标题A\n\n## 题目描述\n\n第一段描述内容。\n第二行内容。\n\n```\n代码块跳过\n```\n"
+    qs = _statement_recall_queries(md)
+    assert qs[0] == "标题A"
+    assert "第一段描述内容" in qs[1]
+    assert "代码块" not in qs[1]
+
+
+def test_statement_recall_merges_and_rescues(tmp_problem_dir, tmp_config, monkeypatch):
+    """关键词召回弱、标题/描述路召回强时，多路合并应让裁判仍能看到高分候选。"""
+    (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
+    calls = []
+
+    def fake_search(q, k=8):
+        calls.append(q)
+        if len(calls) == 1:          # 关键词路：全部低于触发线
+            return _retrieval([0.2, 0.1])
+        return _retrieval([0.72])    # 标题/描述路：召回高分候选（同 source_id 取高分）
+
+    monkeypatch.setattr(agent_mod, "_search_problem_db", fake_search)
+    monkeypatch.setattr(agent_mod, "_call_llm_text", lambda *a, **k: json.dumps(
+        {"judgements": [{"index": 1, "same_model": True, "reason": "同模型"}]}))
+    r = _dedup_check(tmp_problem_dir, "写得很差的query")
+    assert len(calls) == 3               # 关键词 + 标题 + 描述首段
+    assert calls[1] == "最长上升子序列"   # 标题路
+    assert r["dup_verdict"] == "must_change"
+    assert r["top_vector_score"] == 0.72
+
+
 def test_max_candidates_cap(tmp_problem_dir, tmp_config, monkeypatch):
     (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
     monkeypatch.setattr(agent_mod, "_search_problem_db",

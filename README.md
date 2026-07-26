@@ -46,6 +46,12 @@ python main.py --topic graph --difficulty 2200 --name "shortest_path_hard"
 # 使用 DeepSeek 生成题目
 python main.py --topic tree --difficulty 1500 --provider deepseek
 
+# 题意完善模式：给大致题意，系统补全成完整题目（--topic 可省略）
+python main.py --idea "给一棵树，每次删一条边问连通块内第k大，考主席树+启发式合并" --difficulty 2100
+python main.py --idea-file draft.md --difficulty 1800     # 长题意/草稿从文件读
+# 题意与题库撞题时默认中止并给出裁判理由；确认无妨后加 --allow-dup 继续
+# 若 --name 指向已有半成品目录（含 problem.md 等），会在已有文件基础上增量补全
+
 # 仅运行流水线（对已有题目目录）
 python main.py --pipeline problems/my_problem/
 

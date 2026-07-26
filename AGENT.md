@@ -39,6 +39,15 @@ cp-agent/
 ```
 
 ## 核心工作流（Agent 模式）
+
+两种入口：**自由构思**（`--topic`）与**题意完善**（`--idea` / `--idea-file`，`--topic` 变可选）。
+完善模式下 prompt 要求"不得改变核心题目模型"，只允许补数据范围/时限/样例/规范表述；
+`--name` 指向含已有文件的目录时按"增量补全"处理，失败也不归档用户草稿目录。
+查重策略随模式分化（`agent_loop(dedup_policy=…)`）：
+- 自由构思 `rewrite`：撞题 → 拦截产出工具，逼 LLM 换题重查
+- 完善模式 `abort`（默认）：题意是用户给的，撞题 → 立即终止，failure_reason 带原题与裁判理由
+- 完善模式 + `--allow-dup` → `warn`：降级为警告继续
+
 LLM 通过 function calling 自主驱动：
 ```
 1. 构思题目 → 生成 problem.md
@@ -196,7 +205,9 @@ python -m problem_db search "动态规划 背包"
 ## 查重流程（检索召回 + LLM 裁判判定）
 
 Agent 模式下，`search_problem_db` 的完整流程（`agent._dedup_check`）：
-1. **召回**：hybrid 检索本地索引（FAISS 向量 + FTS/LIKE 关键词 + 术语 rerank）
+1. **多路召回**：hybrid 检索（FAISS 向量 + FTS/LIKE 关键词 + 术语 rerank）跑三路 query——
+   LLM 关键词、题面标题、题面描述首段——合并去重取高分。原因：LLM 的 query 措辞不稳定，
+   整段题面 embedding 会稀释语义（实测同模型原题标题路召回 0.79，整段题面路召不回）
 2. **触发**：`vector_score`（余弦相似度）≥ `dedup_judge_trigger`（默认 0.5）的候选，
    取前 `dedup_judge_max_candidates`（默认 5）个
 3. **裁判**：把新题 problem.md + 候选题面摘要交给独立 LLM 裁判，逐候选判断是否
