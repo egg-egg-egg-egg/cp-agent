@@ -342,6 +342,9 @@ def agent_loop(
                                 "base_url": base_url, "api_key": api_key},
                 )
                 quality_state["search_attempted"] = True
+                judge_tokens = result.get("judge_tokens") or {}
+                total_input_tokens += judge_tokens.get("input", 0)
+                total_output_tokens += judge_tokens.get("output", 0)
                 if result.get("success"):
                     verdict = result.get("dup_verdict")
                     if verdict == "must_change" and dedup_policy == "abort":

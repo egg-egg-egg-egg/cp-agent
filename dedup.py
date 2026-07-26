@@ -186,8 +186,16 @@ def dedup_check(problem_dir: Optional[Path], query: str, top_k: int = 8,
     )
     judge_user = f"【新题题面】\n{statement}\n\n【候选原题（共 {len(candidates)} 个）】\n{cand_text}"
 
+    # 裁判可用独立（更便宜的）模型：config dedup_judge_model 优先于主 provider
+    judge_kwargs = dict(llm_kwargs or {})
+    if config.DEDUP_JUDGE_MODEL:
+        judge_kwargs = {"provider": config.DEDUP_JUDGE_MODEL}
+    judge_tokens: dict = {}
+
     try:
-        raw = call_llm_text(JUDGE_SYSTEM_PROMPT, judge_user, **(llm_kwargs or {}))
+        raw = call_llm_text(JUDGE_SYSTEM_PROMPT, judge_user,
+                            usage_sink=judge_tokens, **judge_kwargs)
+        retrieval["judge_tokens"] = judge_tokens
         judgements = parse_judge_response(raw)
     except Exception as e:
         _logger.exception("dedup judge failed for query=%r", query)

@@ -172,8 +172,12 @@ def call_llm_with_tools(messages: list[dict], system: str, provider: str,
 
 def call_llm_text(system: str, user: str, provider: Optional[str] = None,
                    model: Optional[str] = None, base_url: Optional[str] = None,
-                   api_key: Optional[str] = None, max_tokens: int = 2000) -> str:
-    """Plain text LLM call (no tools) using the same provider routing/retry."""
+                   api_key: Optional[str] = None, max_tokens: int = 2000,
+                   usage_sink: Optional[dict] = None) -> str:
+    """
+    Plain text LLM call (no tools) using the same provider routing/retry.
+    usage_sink（可选）：dict，调用后累加 {"input": n, "output": n} token 用量。
+    """
     from config import get_provider, resolve_api_key
 
     protocol, cfg = get_provider(provider)
@@ -181,12 +185,18 @@ def call_llm_text(system: str, user: str, provider: Optional[str] = None,
     resolved_base_url = base_url or cfg["base_url"]
     resolved_api_key = resolve_api_key(cfg, cli_key=api_key, provider_name=provider or "")
 
+    def _account(inp: int, out: int) -> None:
+        if usage_sink is not None:
+            usage_sink["input"] = usage_sink.get("input", 0) + (inp or 0)
+            usage_sink["output"] = usage_sink.get("output", 0) + (out or 0)
+
     if protocol == "anthropic":
         import anthropic
         client = anthropic.Anthropic(api_key=resolved_api_key)
         resp = retry_llm_call(lambda: client.messages.create(
             model=resolved_model, max_tokens=max_tokens, system=system,
             messages=[{"role": "user", "content": user}]))
+        _account(resp.usage.input_tokens, resp.usage.output_tokens)
         return "".join(b.text for b in resp.content if b.type == "text")
     else:
         from openai import OpenAI
@@ -195,6 +205,8 @@ def call_llm_text(system: str, user: str, provider: Optional[str] = None,
             model=resolved_model, max_tokens=max_tokens,
             messages=[{"role": "system", "content": system},
                       {"role": "user", "content": user}]))
+        if resp.usage:
+            _account(resp.usage.prompt_tokens, resp.usage.completion_tokens)
         return resp.choices[0].message.content or ""
 
 

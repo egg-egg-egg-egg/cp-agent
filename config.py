@@ -95,6 +95,7 @@ _DERIVED = {
     "DEFAULT_STRESS_NAIVE_SOFT_LIMIT_SEC": lambda cfg: cfg.get("stress_naive_soft_limit_sec", 10),
     "DEDUP_JUDGE_TRIGGER": lambda cfg: cfg.get("dedup_judge_trigger", 0.5),
     "DEDUP_JUDGE_MAX_CANDIDATES": lambda cfg: cfg.get("dedup_judge_max_candidates", 5),
+    "DEDUP_JUDGE_MODEL": lambda cfg: cfg.get("dedup_judge_model", ""),
     "LLM_PROVIDERS": lambda cfg: cfg.get("providers", {}),
     "NOW_MODEL": lambda cfg: cfg.get("nowModel") or cfg.get("now_model") or "",
     "ALGO_TOPICS": lambda cfg: cfg.get("topics", {}),

@@ -134,6 +134,31 @@ def test_statement_recall_merges_and_rescues(tmp_problem_dir, tmp_config, monkey
     assert r["top_vector_score"] == 0.72
 
 
+def test_judge_model_override_and_usage_sink(tmp_problem_dir, tmp_config, monkeypatch):
+    """配置 dedup_judge_model 时裁判走独立 provider；token 用量写入 judge_tokens。"""
+    tmp_config.write_text(tmp_config.read_text() + '\ndedup_judge_model: "openai.deepseek"\n',
+                          encoding="utf-8")
+    import config
+    config.load_config.cache_clear()
+
+    (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
+    monkeypatch.setattr(dedup_mod, "search_problem_db", lambda q, k=8: _retrieval([0.7]))
+    seen = {}
+
+    def fake_judge(system, user, usage_sink=None, **kwargs):
+        seen["kwargs"] = kwargs
+        if usage_sink is not None:
+            usage_sink["input"] = 123
+            usage_sink["output"] = 45
+        return json.dumps({"judgements": [{"index": 1, "same_model": False, "reason": "不同"}]})
+
+    monkeypatch.setattr(dedup_mod, "call_llm_text", fake_judge)
+    r = dedup_check(tmp_problem_dir, "q",
+                    llm_kwargs={"provider": "main_provider", "model": "big-model"})
+    assert seen["kwargs"] == {"provider": "openai.deepseek"}   # 主 provider 参数被替换
+    assert r["judge_tokens"] == {"input": 123, "output": 45}
+
+
 def test_max_candidates_cap(tmp_problem_dir, tmp_config, monkeypatch):
     (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
     monkeypatch.setattr(dedup_mod, "search_problem_db",

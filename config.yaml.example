@@ -92,6 +92,7 @@ memory_limit_mb: 256      # 默认内存限制（MB）
 # 注意：检索结果里的 final_score 是 RRF 排名融合分（只用于排序），不是相似度。
 dedup_judge_trigger: 0.5          # 触发 LLM 裁判的最低向量相似度
 dedup_judge_max_candidates: 5     # 每次最多送裁判的候选数
+# dedup_judge_model: "openai.deepseek"   # 可选：裁判用独立（更便宜的）provider，留空则用主 provider
 
 # --- Stress test ---
 # 对拍测试参数
