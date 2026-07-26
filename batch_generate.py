@@ -22,32 +22,30 @@ PROBLEMS_DIR = PROJECT_ROOT / "problems"
 CHECKPOINT_FILE = PROJECT_ROOT / "batch_checkpoint.json"
 LOG_FILE = PROJECT_ROOT / "batch_generate.log"
 
-# All topics from config.yaml
-TOPICS = [
-    "dp", "tree", "graph", "greedy", "binary_search",
-    "data_structure", "math", "string", "geometry", "bit",
-    "dsu", "segment_tree", "fenwick", "bfs_dfs", "shortest_path",
-    "matching", "flow", "combinatorics", "number_theory", "constructive",
-]
-
-# All difficulty levels from config.yaml
-DIFFICULTIES = [
-    800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700,
-    1800, 1900, 2000, 2100, 2200, 2300, 2400, 2500, 2600, 2700,
-    2800, 2900, 3000,
-]
-
 # Number of problems per (topic, difficulty) combination
 REPLICAS_PER_COMBO = 4
 
-TOTAL_PROBLEMS = len(TOPICS) * len(DIFFICULTIES) * REPLICAS_PER_COMBO  # 1840
+
+# 考点与难度直接来自 config.yaml（延迟读取，避免与配置漂移）
+def get_topics() -> list[str]:
+    import config
+    return list(config.ALGO_TOPICS.keys())
+
+
+def get_difficulties() -> list[int]:
+    import config
+    return sorted(config.DIFFICULTY_PRESETS.keys())
+
+
+def total_problems() -> int:
+    return len(get_topics()) * len(get_difficulties()) * REPLICAS_PER_COMBO
 
 
 def build_queue():
     """Build the full problem queue."""
     queue = []
-    for topic in TOPICS:
-        for diff in DIFFICULTIES:
+    for topic in get_topics():
+        for diff in get_difficulties():
             for idx in range(1, REPLICAS_PER_COMBO + 1):
                 name = f"{topic}_d{diff}_{idx}"
                 queue.append({
@@ -77,8 +75,8 @@ def save_checkpoint(completed, failed):
         "failed": failed,
         "last_updated": datetime.now().isoformat(),
         "total_completed": len(completed),
-        "total_target": TOTAL_PROBLEMS,
-        "progress_pct": round(len(completed) / TOTAL_PROBLEMS * 100, 2),
+        "total_target": total_problems(),
+        "progress_pct": round(len(completed) / total_problems() * 100, 2),
     }
     with open(CHECKPOINT_FILE, "w") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
@@ -183,6 +181,15 @@ def run_one_problem(topic, difficulty, name):
 def main():
     import logutil
     logutil.setup()
+    from config import ConfigError
+    try:
+        _main()
+    except ConfigError as e:
+        print(f"配置错误: {e}")
+        sys.exit(2)
+
+
+def _main():
     parser = argparse.ArgumentParser(description="CP-Agent batch generation")
     parser.add_argument("--limit", type=int, default=None,
                         help="Only run the first N pending problems (smoke test)")
@@ -195,10 +202,10 @@ def main():
 
     log(f"{'='*60}")
     log("CP-Agent Batch Generation")
-    log(f"  Topics: {len(TOPICS)}")
-    log(f"  Difficulties: {len(DIFFICULTIES)}")
+    log(f"  Topics: {len(get_topics())}")
+    log(f"  Difficulties: {len(get_difficulties())}")
     log(f"  Replicas per combo: {REPLICAS_PER_COMBO}")
-    log(f"  Total target: {TOTAL_PROBLEMS}")
+    log(f"  Total target: {total_problems()}")
     log(f"  Already completed: {len(completed)}")
     log(f"  Previously failed: {len(failed)}")
     log(f"{'='*60}")
@@ -225,7 +232,7 @@ def main():
         elapsed_total = time.time() - batch_start
         eta = (elapsed_total / max(stats["success"] + stats["failed"], 1)) * (len(pending) - i - 1) if stats["success"] + stats["failed"] > 0 else 0
 
-        log(f"\n[{i+1}/{len(pending)}] ({len(completed)}/{TOTAL_PROBLEMS} total) "
+        log(f"\n[{i+1}/{len(pending)}] ({len(completed)}/{total_problems()} total) "
             f"ETA: {eta/3600:.1f}h | {item['name']} "
             f"(topic={item['topic']}, diff={item['difficulty']}, idx={item['index']})")
 
@@ -260,7 +267,7 @@ def main():
     log("BATCH COMPLETE")
     log(f"  Success: {stats['success']}")
     log(f"  Failed: {stats['failed']}")
-    log(f"  Total completed: {len(completed)}/{TOTAL_PROBLEMS}")
+    log(f"  Total completed: {len(completed)}/{total_problems()}")
     log(f"  Total time: {total_time/3600:.1f} hours")
     log(f"{'='*60}")
 
