@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from agent import _classify_llm_error, _retry_llm_call
+from llm_client import classify_llm_error, retry_llm_call
 
 
 class RateLimitError(Exception):
@@ -22,11 +22,11 @@ class BadRequestError(Exception):
 
 
 def test_classify():
-    assert _classify_llm_error(RateLimitError())[0] is True
-    assert _classify_llm_error(InternalServerError())[0] is True
-    assert _classify_llm_error(AuthenticationError())[0] is False
-    assert _classify_llm_error(BadRequestError())[0] is False
-    assert _classify_llm_error(ValueError("x"))[0] is False
+    assert classify_llm_error(RateLimitError())[0] is True
+    assert classify_llm_error(InternalServerError())[0] is True
+    assert classify_llm_error(AuthenticationError())[0] is False
+    assert classify_llm_error(BadRequestError())[0] is False
+    assert classify_llm_error(ValueError("x"))[0] is False
 
 
 def test_retry_then_success(monkeypatch):
@@ -40,7 +40,7 @@ def test_retry_then_success(monkeypatch):
             raise RateLimitError()
         return "ok"
 
-    assert _retry_llm_call(flaky) == "ok"
+    assert retry_llm_call(flaky) == "ok"
     assert calls["n"] == 3
     assert len(sleeps) == 2
     assert sleeps[1] > sleeps[0]  # exponential backoff
@@ -55,7 +55,7 @@ def test_auth_error_not_retried(monkeypatch):
         raise AuthenticationError()
 
     with pytest.raises(AuthenticationError):
-        _retry_llm_call(denied)
+        retry_llm_call(denied)
     assert calls["n"] == 1
 
 
@@ -66,7 +66,7 @@ def test_exhausted_raises(monkeypatch):
         raise InternalServerError()
 
     with pytest.raises(InternalServerError):
-        _retry_llm_call(always_fail, max_attempts=3)
+        retry_llm_call(always_fail, max_attempts=3)
 
 
 def test_retry_after_header_respected(monkeypatch):
@@ -87,5 +87,5 @@ def test_retry_after_header_respected(monkeypatch):
             raise RL()
         return "ok"
 
-    assert _retry_llm_call(flaky) == "ok"
+    assert retry_llm_call(flaky) == "ok"
     assert sleeps == [7.0]

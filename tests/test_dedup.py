@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-import agent as agent_mod
-from agent import _dedup_check, _parse_judge_response, _threshold_fallback_verdict
+import dedup as dedup_mod
+from dedup import dedup_check, parse_judge_response, threshold_fallback_verdict
 
 STATEMENT = "# 最长上升子序列\n\n给定序列，求最长严格上升子序列长度。" * 3
 
@@ -27,33 +27,33 @@ def _retrieval(vector_scores):
 
 def test_parse_judge_response():
     text = '前置废话 {"judgements": [{"index": 1, "same_model": true, "reason": "同为LIS"}]} 后缀'
-    j = _parse_judge_response(text)
+    j = parse_judge_response(text)
     assert j[0]["same_model"] is True
     with pytest.raises(ValueError):
-        _parse_judge_response("没有 json")
+        parse_judge_response("没有 json")
     with pytest.raises(ValueError):
-        _parse_judge_response('{"foo": 1}')
+        parse_judge_response('{"foo": 1}')
 
 
 def test_threshold_fallback():
-    assert _threshold_fallback_verdict(0.9)[0] == "must_change"
-    assert _threshold_fallback_verdict(0.75)[0] == "manual_review"
-    assert _threshold_fallback_verdict(0.5)[0] == "ok"
+    assert threshold_fallback_verdict(0.9)[0] == "must_change"
+    assert threshold_fallback_verdict(0.75)[0] == "manual_review"
+    assert threshold_fallback_verdict(0.5)[0] == "ok"
 
 
 def test_below_trigger_skips_judge(tmp_problem_dir, tmp_config, monkeypatch):
     (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
-    monkeypatch.setattr(agent_mod, "_search_problem_db", lambda q, k=8: _retrieval([0.4, 0.3]))
-    monkeypatch.setattr(agent_mod, "_call_llm_text",
+    monkeypatch.setattr(dedup_mod, "search_problem_db", lambda q, k=8: _retrieval([0.4, 0.3]))
+    monkeypatch.setattr(dedup_mod, "call_llm_text",
                         lambda *a, **k: pytest.fail("judge should not be called"))
-    r = _dedup_check(tmp_problem_dir, "q")
+    r = dedup_check(tmp_problem_dir, "q")
     assert r["dup_verdict"] == "ok"
     assert "触发线" in r["message"]
 
 
 def test_judge_confirms_duplicate(tmp_problem_dir, tmp_config, monkeypatch):
     (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
-    monkeypatch.setattr(agent_mod, "_search_problem_db", lambda q, k=8: _retrieval([0.67, 0.62]))
+    monkeypatch.setattr(dedup_mod, "search_problem_db", lambda q, k=8: _retrieval([0.67, 0.62]))
     seen = {}
 
     def fake_judge(system, user, **kwargs):
@@ -63,8 +63,8 @@ def test_judge_confirms_duplicate(tmp_problem_dir, tmp_config, monkeypatch):
             {"index": 2, "same_model": False, "reason": "只是同算法"},
         ]})
 
-    monkeypatch.setattr(agent_mod, "_call_llm_text", fake_judge)
-    r = _dedup_check(tmp_problem_dir, "q")
+    monkeypatch.setattr(dedup_mod, "call_llm_text", fake_judge)
+    r = dedup_check(tmp_problem_dir, "q")
     assert r["dup_verdict"] == "must_change"
     assert len(r["duplicates"]) == 1
     assert r["duplicates"][0]["title"] == "题目0"
@@ -75,39 +75,39 @@ def test_judge_confirms_duplicate(tmp_problem_dir, tmp_config, monkeypatch):
 def test_judge_clears_high_scores(tmp_problem_dir, tmp_config, monkeypatch):
     """High retrieval score but judge says distinct → ok (score is not the gate)."""
     (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
-    monkeypatch.setattr(agent_mod, "_search_problem_db", lambda q, k=8: _retrieval([0.97]))
-    monkeypatch.setattr(agent_mod, "_call_llm_text", lambda *a, **k: json.dumps(
+    monkeypatch.setattr(dedup_mod, "search_problem_db", lambda q, k=8: _retrieval([0.97]))
+    monkeypatch.setattr(dedup_mod, "call_llm_text", lambda *a, **k: json.dumps(
         {"judgements": [{"index": 1, "same_model": False, "reason": "问题模型不同"}]}))
-    r = _dedup_check(tmp_problem_dir, "q")
+    r = dedup_check(tmp_problem_dir, "q")
     assert r["dup_verdict"] == "ok"
 
 
 def test_judge_failure_falls_back_to_thresholds(tmp_problem_dir, tmp_config, monkeypatch):
     (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
-    monkeypatch.setattr(agent_mod, "_search_problem_db", lambda q, k=8: _retrieval([0.96]))
+    monkeypatch.setattr(dedup_mod, "search_problem_db", lambda q, k=8: _retrieval([0.96]))
 
     def boom(*a, **k):
         raise RuntimeError("llm down")
 
-    monkeypatch.setattr(agent_mod, "_call_llm_text", boom)
-    r = _dedup_check(tmp_problem_dir, "q")
+    monkeypatch.setattr(dedup_mod, "call_llm_text", boom)
+    r = dedup_check(tmp_problem_dir, "q")
     assert r["dup_verdict"] == "must_change"     # 0.96 → threshold fallback
     assert "judge_error" in r
 
 
 def test_missing_statement_defers_judging(tmp_problem_dir, tmp_config, monkeypatch):
-    monkeypatch.setattr(agent_mod, "_search_problem_db", lambda q, k=8: _retrieval([0.7]))
-    monkeypatch.setattr(agent_mod, "_call_llm_text",
+    monkeypatch.setattr(dedup_mod, "search_problem_db", lambda q, k=8: _retrieval([0.7]))
+    monkeypatch.setattr(dedup_mod, "call_llm_text",
                         lambda *a, **k: pytest.fail("judge needs the statement"))
-    r = _dedup_check(tmp_problem_dir, "q")
+    r = dedup_check(tmp_problem_dir, "q")
     assert r["dup_verdict"] == "manual_review"
     assert "problem.md" in r["message"]
 
 
 def test_statement_recall_queries():
-    from agent import _statement_recall_queries
+    from dedup import statement_recall_queries
     md = "# 标题A\n\n## 题目描述\n\n第一段描述内容。\n第二行内容。\n\n```\n代码块跳过\n```\n"
-    qs = _statement_recall_queries(md)
+    qs = statement_recall_queries(md)
     assert qs[0] == "标题A"
     assert "第一段描述内容" in qs[1]
     assert "代码块" not in qs[1]
@@ -124,10 +124,10 @@ def test_statement_recall_merges_and_rescues(tmp_problem_dir, tmp_config, monkey
             return _retrieval([0.2, 0.1])
         return _retrieval([0.72])    # 标题/描述路：召回高分候选（同 source_id 取高分）
 
-    monkeypatch.setattr(agent_mod, "_search_problem_db", fake_search)
-    monkeypatch.setattr(agent_mod, "_call_llm_text", lambda *a, **k: json.dumps(
+    monkeypatch.setattr(dedup_mod, "search_problem_db", fake_search)
+    monkeypatch.setattr(dedup_mod, "call_llm_text", lambda *a, **k: json.dumps(
         {"judgements": [{"index": 1, "same_model": True, "reason": "同模型"}]}))
-    r = _dedup_check(tmp_problem_dir, "写得很差的query")
+    r = dedup_check(tmp_problem_dir, "写得很差的query")
     assert len(calls) == 3               # 关键词 + 标题 + 描述首段
     assert calls[1] == "最长上升子序列"   # 标题路
     assert r["dup_verdict"] == "must_change"
@@ -136,7 +136,7 @@ def test_statement_recall_merges_and_rescues(tmp_problem_dir, tmp_config, monkey
 
 def test_max_candidates_cap(tmp_problem_dir, tmp_config, monkeypatch):
     (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
-    monkeypatch.setattr(agent_mod, "_search_problem_db",
+    monkeypatch.setattr(dedup_mod, "search_problem_db",
                         lambda q, k=8: _retrieval([0.9, 0.8, 0.75, 0.7, 0.68, 0.65, 0.62]))
     seen = {}
 
@@ -145,8 +145,8 @@ def test_max_candidates_cap(tmp_problem_dir, tmp_config, monkeypatch):
         return json.dumps({"judgements": [
             {"index": i, "same_model": False, "reason": "不同"} for i in range(1, 6)]})
 
-    monkeypatch.setattr(agent_mod, "_call_llm_text", fake_judge)
-    r = _dedup_check(tmp_problem_dir, "q")
+    monkeypatch.setattr(dedup_mod, "call_llm_text", fake_judge)
+    r = dedup_check(tmp_problem_dir, "q")
     assert r["dup_verdict"] == "ok"
     assert "候选 5" in seen["user"]
     assert "候选 6" not in seen["user"]          # capped at 5

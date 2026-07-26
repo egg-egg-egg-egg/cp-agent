@@ -163,8 +163,8 @@ class SearchWorker(QThread):
 
     def run(self):
         try:
-            import agent
-            r = agent._search_problem_db(self.query, self.top_k)
+            from dedup import search_problem_db
+            r = search_problem_db(self.query, self.top_k)
             if r.get("success"):
                 self.ok.emit(r["results"])
             else:
