@@ -17,7 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 db = ["sentence-transformers>=2.7", "faiss-cpu>=1.8"]
 gui = ["PySide6>=6.6"]
-dev = ["pytest>=8", "ruff>=0.5"]
+dev = ["pytest>=8", "ruff>=0.5", "numpy>=1.26", "faiss-cpu>=1.8"]
 
 [project.gui-scripts]
 cp-agent-gui = "gui:main"
