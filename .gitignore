@@ -17,11 +17,41 @@ build/
 .DS_Store
 Thumbs.db
 
-# ─── Sensitive ───
+# ─── Sensitive (凭证 & 本地私密配置) ───
+# 注意：这里用「具体名单 + 泛化后缀」双保险。泛化规则是为了防止以后新增的
+# 凭证文件（如 xxx.key、service-account.json）在没改 .gitignore 时被误提交。
 config.yaml
 upload_config.toml
 .env
 .env.*
+
+# 证书 / 密钥类
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+
+# 凭据类（credentials / secrets / service account）
+credentials*
+creds.*
+secrets.*
+*secrets.yaml
+*secrets.toml
+*credentials*.json
+service-account*.json
+client_secret*.json
+
+# 本地运行态 / 个人覆盖配置（含本机专属路径）
+config.local.*
+*.local.yaml
+*.local.toml
+*.local.json
 
 # ─── Large data files (download separately) ───
 problem_data/

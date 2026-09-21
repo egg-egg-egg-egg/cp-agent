@@ -1,0 +1,34 @@
+#!/bin/sh
+# CP-Agent 凭证拦截 hook
+#
+# 为什么需要它：.gitignore 只能挡住「没被 -f 强加」的文件，
+# 而 git add -f / IDE 误操作会绕过它。这个 hook 在 commit 时直接扫内容，
+# 命中就直接拒绝提交。
+#
+# 启用方式（每个 clone 需要执行一次，hooks 不随仓库同步）：
+#   git config core.hooksPath .githooks
+#
+# 临时绕过（确认真是误报时用）：
+#   git commit --no-verify
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+SCANNER="$REPO_ROOT/.githooks/scan_secrets.py"
+
+# 依次尝试项目 venv -> python3 -> python
+PY=""
+if [ -x "$REPO_ROOT/.venv/Scripts/python.exe" ]; then
+    PY="$REPO_ROOT/.venv/Scripts/python.exe"
+elif [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+    PY="$REPO_ROOT/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    PY="python3"
+elif command -v python >/dev/null 2>&1; then
+    PY="python"
+fi
+
+if [ -z "$PY" ]; then
+    echo "pre-commit: 找不到 python，跳过凭证扫描（建议配置 .venv）"
+    exit 0
+fi
+
+exec "$PY" "$SCANNER"
