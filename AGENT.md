@@ -254,6 +254,6 @@ Agent 模式下，`search_problem_db` 的完整流程（`agent._dedup_check`）�
 3. macOS 没有 bits/stdc++.h，需用标准头文件
 4. ~~洛谷 P9000+ 题目无题面~~ ✅ 已通过 `luogu_enrich_fast.py` 补全（100% 覆盖）
 5. AtCoder 爬虫暂未实现（API 需要认证）
-6. HuggingFace 下载需要代理：`export https_proxy=http://127.0.0.1:7897`
+6. HuggingFace 下载需要代理：`export https_proxy=http://127.0.0.1:7890`
 7. CF Gym 无法爬取 — 页面有 Cloudflare 防护，API 只返回元数据不返回题面
 8. 洛谷 SPOJ 系列（SP 开头）约 1024 题无题面 — 洛谷上本身就没有完整页面
