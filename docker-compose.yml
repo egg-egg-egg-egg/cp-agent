@@ -1,0 +1,16 @@
+# CP-Agent MCP Server — 本地一键起服务
+# 用法：
+#   echo "DEEPSEEK_API_KEY=sk-xxx" > .env   # 或 export DEEPSEEK_API_KEY=sk-xxx
+#   docker compose up -d --build
+services:
+  cp-agent-mcp:
+    build: .
+    image: cp-agent-mcp:latest
+    container_name: cp-agent-mcp
+    ports:
+      - "8000:8000"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - CP_AGENT_CONFIG=/app/cp-agent/config.yaml
+      # 若本机有多个 g++ 或需指定： - CXX=g++
+    restart: unless-stopped

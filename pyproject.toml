@@ -17,14 +17,15 @@ dependencies = [
 [project.optional-dependencies]
 db = ["sentence-transformers>=2.7", "faiss-cpu>=1.8"]
 gui = ["PySide6>=6.6"]
+upload = ["beautifulsoup4>=4.12"]
 dev = ["pytest>=8", "ruff>=0.5", "numpy>=1.26", "faiss-cpu>=1.8"]
 
 [project.gui-scripts]
 cp-agent-gui = "gui:main"
 
 [tool.setuptools]
-py-modules = ["main", "config", "agent", "pipeline", "batch_generate", "report", "export", "logutil", "gui", "llm_client", "dedup", "prompts", "verify"]
-packages = ["problem_db"]
+py-modules = ["main", "config", "agent", "pipeline", "batch_generate", "report", "export", "upload", "logutil", "gui", "llm_client", "dedup", "prompts", "verify"]
+packages = ["problem_db", "integrations"]
 
 [tool.ruff]
 line-length = 120

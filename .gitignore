@@ -19,6 +19,7 @@ Thumbs.db
 
 # ─── Sensitive ───
 config.yaml
+upload_config.toml
 .env
 .env.*
 

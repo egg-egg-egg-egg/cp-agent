@@ -1,0 +1,13 @@
+# 本地环境产物，不要带进镜像
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+install*.log
+pipcfg.log
+cp_agent.log
+problems/
+.github/
+.git/
+tests/
+*.md

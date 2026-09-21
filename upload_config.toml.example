@@ -1,0 +1,16 @@
+# 上传题目到 OJ 的凭据配置
+# 复制为 upload_config.toml 并填写（该文件已在 .gitignore 中，不会提交）
+#
+# 解析优先级：命令行参数 > 本文件 > 环境变量
+# （OJ_BASE_URL / OJ_USER / OJ_PASSWORD / OJ_KIND）
+
+[oj]
+host = "https://oj.ipachong.com"
+user = "your_oj_username"
+password = ""
+
+# 导入接口类型，对应 HUSTOJ admin/problem_import_*.php
+#   hydro → problem_import_hydro.php（本项目 export.py 产物，推荐）
+#   qduoj → problem_import_qduoj.php（QDUOJ 导出的 json+testcase zip）
+#   syzoj / hoj / tyvj / md / xml 同理
+kind = "hydro"

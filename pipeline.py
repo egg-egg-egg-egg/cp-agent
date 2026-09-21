@@ -6,6 +6,7 @@ Each tool returns a structured dict for LLM tool_result consumption.
 """
 import logging
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -90,6 +91,16 @@ def _compile(src: Path, out: Path) -> tuple[bool, str]:
     code, stdout, stderr = _run_cmd(cmd, timeout=60)
     if code != 0:
         return False, stderr
+    # Windows 兼容：g++ 会把无扩展名的 -o 目标产出为 <out>.exe，而 pipeline 各处
+    # 按 bin/<name>（无扩展名）定位可执行文件。这里额外生成一个无扩展名同名副本
+    # （PE 文件无扩展名也可按全路径执行），使跨平台查找逻辑保持一致。
+    if os.name == "nt" and not out.exists():
+        exe = out.with_name(out.name + ".exe")
+        if exe.exists():
+            try:
+                shutil.copyfile(exe, out)
+            except OSError:
+                pass
     return True, f"Compiled {src.name} -> {out.name}"
 
 

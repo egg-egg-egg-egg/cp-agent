@@ -51,6 +51,18 @@ def search_problem_db(query: str, top_k: int = 8) -> dict:
             "top_vector_score": top_vector,
             "results": results,
         }
+    except (ModuleNotFoundError, ImportError) as e:
+        _logger.warning("search_problem_db 依赖缺失(%s)，查重未启用，已跳过", e)
+        return {
+            "success": False,
+            "disabled": True,
+            "message": (
+                f"查重库未启用：缺少依赖 {getattr(e, 'name', '') or e}。"
+                "需安装 db 依赖（numpy/faiss/sentence-transformers）并下载题库后再用；"
+                "本次跳过查重，不影响出题。"
+            ),
+            "query": query,
+        }
     except Exception as e:
         _logger.exception("search_problem_db failed for query=%r", query)
         return {"success": False, "message": f"本地题库搜索失败: {e}", "query": query}

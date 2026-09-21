@@ -104,6 +104,10 @@ _DERIVED = {
     "LLM_PROVIDERS": lambda cfg: cfg.get("providers", {}),
     "NOW_MODEL": lambda cfg: cfg.get("nowModel") or cfg.get("now_model") or "",
     "ALGO_TOPICS": lambda cfg: cfg.get("topics", {}),
+    # ── HydroOJ 导出（平台上传格式）──
+    "HYDRO_FILE_IO": lambda cfg: bool((cfg.get("hydro") or {}).get("file_io", True)),
+    "HYDRO_FILENAME": lambda cfg: str((cfg.get("hydro") or {}).get("filename") or ""),
+    "HYDRO_SUBTASK_TYPE": lambda cfg: str((cfg.get("hydro") or {}).get("subtask_type") or "min"),
 }
 
 
