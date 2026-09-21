@@ -7,20 +7,28 @@
 # 1) 先看要发生什么（不联网）
 python upload.py problems/smoke_dp2 --dry-run
 
-# 2) ⭐ 出题目录 → 导出 FPS XML → 登录 → 上传（多数 HUSTOJ 部署最可靠的一条）
-python upload.py problems/smoke_dp2 --kind xml
-
-# 3) 出题目录 → 自动导出 HydroOJ 包 → 登录 → 上传
+# 2) ⭐ 出题目录 → 导出 HydroOJ 包 → 上传（默认入口，最稳）
 python upload.py problems/smoke_dp2
 
-# 4) 直接推一个已有文件（平台导出的包 / 自己生成的 xml）
-python upload.py export/hydrooj/20260920_195543.zip --kind hydro
-python upload.py export/xml/smoke_dp2.xml --kind xml
+# 3) 出题目录 → 导出 FPS XML → 上传
+python upload.py problems/smoke_dp2 --kind xml2
 
-上传后本脚本会自动把新题从「未启用」切为「启用」（HUSTOJ 各导入器建出来的题目
-默认都是未启用，学生端看不到该题）；不想自动切就加 --no-enable。之后请跑
-`python oj_check.py <pid>` 验收：HUSTOJ 的各导入器遇到包结构问题时会**静默半成功**
-（题目建出来了但题面为空、测试点没进去），只看接口返回的 HTML 会被骗。
+# 4) 直接推一个已有文件（平台导出的包 / 自己生成的 xml）
+python upload.py export/hydrooj/20260921_123515.zip --kind hydro2
+python upload.py export/xml/smoke_dp2.xml --kind xml2
+
+⚠ 入口选错会毁题面。这台 OJ 同时装了两代导入器：
+  - 新一代 admin/problem_import2.php（页面标题「上游新版试运行」）→ kind 带 2
+  - 老一代 admin/problem_import.php                             → kind 不带 2
+  本站题面按 **Markdown** 渲染（<span class="md"> + marked.js），新一代入口与之匹配；
+  老一代会把 HTML 题面当 markdown 文本处理，题面格式会散。默认走 hydro2，FPS XML 走 xml2。
+  上传前脚本会探测该 OJ 实际装了哪些入口，不存在就报清楚，而不是吃一个 404。
+
+导入建出来的题目默认是「未启用」，本站这是新建题的常态，脚本**不再自动改状态**；
+确实要启用就加 --enable。
+
+之后请跑 `python oj_check.py <pid>` 验收：HUSTOJ 的各导入器遇到包结构问题时会
+**静默半成功**（题目建出来了但题面为空、测试点没进去），只看接口返回的 HTML 会被骗。
 
 凭据解析优先级：命令行参数 > upload_config.toml > 环境变量
 （OJ_BASE_URL / OJ_USER / OJ_PASSWORD / OJ_KIND）。
@@ -42,15 +50,19 @@ _UPLOAD_ZIP_KEYS = {
     "hydro": "problem.yaml",
     "qduoj": "1/problem.json",
 }
-# 题目目录能直接打包成哪些 --kind
+# 题目目录能直接打包成哪些 --kind（`*2` = 新一代入口，与老一代产物格式相同）
 _DIR_EXPORT_FORMAT = {
+    "hydro2": "hydrooj",
     "hydro": "hydrooj",
+    "qduoj2": "qduoj",
     "qduoj": "qduoj",
+    "xml2": "xml",
     "xml": "xml",
 }
 # 每种 kind 允许直接上传的文件后缀
 _PKG_SUFFIX = {
-    "xml": (".xml", ".zip"),   # HUSTOJ 也接受"zip 内含 xml"的形式
+    "xml": (".xml", ".zip"),    # HUSTOJ 也接受"zip 内含 xml"的形式
+    "xml2": (".xml", ".zip"),
 }
 _DEFAULT_SUFFIX = (".zip",)
 
@@ -80,7 +92,7 @@ def resolve_credentials(cli: argparse.Namespace, cfg: dict) -> dict:
         "host": getattr(cli, "host", None) or section.get("host") or os.environ.get("OJ_BASE_URL", ""),
         "user": getattr(cli, "user", None) or section.get("user") or os.environ.get("OJ_USER", ""),
         "password": getattr(cli, "password", None) or section.get("password") or os.environ.get("OJ_PASSWORD", ""),
-        "kind": getattr(cli, "kind", None) or section.get("kind") or os.environ.get("OJ_KIND", "hydro"),
+        "kind": getattr(cli, "kind", None) or section.get("kind") or os.environ.get("OJ_KIND", "hydro2"),
     }
 
 
@@ -200,15 +212,16 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="上传题目到 OJ（HUSTOJ 导入接口）")
     ap.add_argument("target", type=Path, help="题目目录 或 已打包的 zip")
     ap.add_argument("--kind", "-k", default=None,
-                    choices=["hydro", "qduoj", "syzoj", "hoj", "tyvj", "md", "xml"],
-                    help="导入接口类型（默认 hydro）")
+                    choices=["hydro2", "hydro", "xml2", "xml", "qduoj2", "qduoj",
+                             "syzoj2", "syzoj", "hoj2", "hoj", "tyvj2", "tyvj", "md2", "md"],
+                    help="导入接口类型（默认 hydro2 = 新一代 HydroOJ 入口）")
     ap.add_argument("--host", default=None, help="OJ 根地址，如 https://oj.example.com")
     ap.add_argument("--user", default=None)
     ap.add_argument("--password", default=None)
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="凭据 TOML 路径")
     ap.add_argument("--dry-run", action="store_true", help="只解析与校验，不登录不上传")
-    ap.add_argument("--no-enable", dest="no_enable", action="store_true",
-                    help="导入成功后不要自动把新题切为「启用」（默认会自动切）")
+    ap.add_argument("--enable", action="store_true",
+                    help="导入成功后把新题从「未启用」切为「启用」（默认不动状态）")
     ap.add_argument("--filename", dest="filename_opt", default=None,
                     help="导出 HydroOJ 包时的 file_io / 测试点前缀")
     ap.add_argument("--dir-name", default=None, help="导出 HydroOJ 包时的顶层目录名")
@@ -253,6 +266,16 @@ def main(argv=None) -> int:
         print("✗ 登录失败：请核对账号密码，以及该账号是否有题目导入权限")
         return 1
 
+    # 先探测这台 OJ 实际装了哪些导入入口：不同部署装的代次不一样，硬编码会吃 404。
+    kinds = hustoj.import_kinds(session, creds["host"])
+    if kinds:
+        if kind not in kinds:
+            print(f"✗ 该 OJ 上没有 --kind {kind} 这个入口。实测可用：")
+            for k in sorted(kinds):
+                print(f"    --kind {k:<8} → admin/{kinds[k]}")
+            return 2
+        print(f"入口探测 : admin/{kinds[kind]} ✓")
+
     text = hustoj.upload_problem_zip(session, str(zip_path), kind=kind, url=creds["host"])
     if text.startswith("上传失败"):
         print(f"✗ {text}")
@@ -265,15 +288,14 @@ def main(argv=None) -> int:
 
     pid = parse_added_pid(text)
     if pid is None:
-        print("\n⚠ 响应里没有 'Problem ID <pid> added'，无法自动启用。"
-              "请到题目列表页手动把该题切为「启用」，或跑 oj_check.py --recent 3 定位")
-    elif args.no_enable:
-        print(f"\n！按 --no-enable 跳过自动启用：新题 pid = {pid}"
-              f"（当前是「未启用」，学生端看不到）")
-    else:
+        print("\n⚠ 响应里没有 'Problem ID <pid> added'，定位不到新题；"
+              "请到题目列表页确认，或跑 oj_check.py --recent 3")
+    elif args.enable:
         print(f"\n新题 pid = {pid}，正在切为「启用」…")
         ok, msg = hustoj.set_problem_enabled(session, creds["host"], pid, True)
         print(("✓ " if ok else "⚠ ") + msg)
+    else:
+        print(f"\n新题 pid = {pid}（默认「未启用」，本站新建题的常态；要启用请加 --enable）")
 
     print(f"\n下一步：python oj_check.py {pid if pid else '--recent 3'}"
           f"   # 核对题面/用例/时限/启用状态")

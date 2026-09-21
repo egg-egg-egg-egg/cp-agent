@@ -13,7 +13,7 @@ cp-agent/
 ├── prompts.py           # SYSTEM_PROMPT / build_user_prompt（纯 prompt 资产）
 ├── pipeline.py          # 工具注册表（@tool 装饰器）+ 12 个沙盒工具 + Pipeline 类
 ├── export.py            # 题目包导出：hydrooj（默认）/ xml（HUSTOJ FPS，实测最可靠）/ luogu / polygon
-├── upload.py            # 上传到 OJ（导出 → 登录 → postkey → 导入 → 自动启用新题）
+├── upload.py            # 上传到 OJ（导出 → 登录 → 探测入口 → postkey → 导入；--enable 才改状态）
 ├── oj_check.py          # 只读验收：核对题面/用例/时限/启用状态是否真的落地
 ├── integrations/        # 平台对接（hustoj.py：登录 / 提交记录 / 上传 / 启用状态）
 ├── report.py            # result.json 结构化结果 + 产物完整性检查

@@ -183,3 +183,42 @@ def test_upload_cli_dry_run_needs_no_credentials(tmp_path, capsys):
     out = capsys.readouterr().out
     assert rc == 0 and "dry-run" in out
     assert glob.glob(str(tmp_path / "p" / "export" / "hydrooj" / "d.zip"))
+
+
+# ─── 新一代导入入口（admin/problem_import2.php）──────────────────────────────
+
+def test_new_generation_endpoints_and_pages():
+    """这台 OJ 同时装了两代导入器。新一代入口挂在 problem_import2.php 下，
+    而 postkey 是**逐页面**写进 session 的 —— 用哪个入口就得去对应页面取。"""
+    assert hustoj.IMPORT_ENDPOINTS["hydro2"] == "problem_import_hydro2.php"
+    assert hustoj.IMPORT_ENDPOINTS["xml2"] == "problem_import_xml2.php"
+    assert hustoj.import_page("hydro2") == "admin/problem_import2.php"
+    assert hustoj.import_page("xml2") == "admin/problem_import2.php"
+    assert hustoj.import_page("hydro") == "admin/problem_import.php"
+
+
+def test_upload_to_new_generation_fetches_postkey_from_page2(sample_zip):
+    s = FakeSession(get_html=POSTKEY_PAGE)
+    hustoj.upload_problem_zip(s, str(sample_zip), kind="hydro2", url="https://oj.test")
+    assert s.posts[0][0] == "https://oj.test/admin/problem_import_hydro2.php"
+    assert any(u.endswith("/admin/problem_import2.php") for u in s.gets)
+    assert not any(u.endswith("/admin/problem_import.php") for u in s.gets)
+    assert s.posts[0][1]["data"] == {"postkey": "AB12CD34EF"}
+
+
+IMPORT_LIST_PAGE = (
+    "<form class='form-inline aj-up' action='problem_import_xml2.php' method=post>"
+    "<input type=hidden name='postkey' value='AA11BB22CC'></form>"
+    "<form class='form-inline aj-up' action='problem_import_hydro2.php' method=post></form>"
+    "<form class='form-inline' action='problem_import_xml.php' method=post></form>"
+)
+
+
+def test_import_kinds_merges_both_generations():
+    """两代页面各探一次，合并成 {kind: 脚本名}；用来把 404 变成清楚提示。"""
+    s = FakeSession(get_html=IMPORT_LIST_PAGE)
+    kinds = hustoj.import_kinds(s, "https://oj.test")
+    assert kinds["hydro2"] == "problem_import_hydro2.php"
+    assert kinds["xml2"] == "problem_import_xml2.php"
+    assert kinds["xml"] == "problem_import_xml.php"
+    assert len(s.gets) == 2

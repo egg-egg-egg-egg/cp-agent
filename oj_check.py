@@ -16,7 +16,8 @@ python oj_check.py 19600 --no-data      # 跳过测试点核对（大数据题�
 
 核对项
 ------
-题面字符数 / 时限 / 内存 / 测试点数（读 FPS XML 导出反算）/ 是否"未启用"
+题面字符数（各段累加）/ 时限 / 内存 / 测试点数（读 FPS XML 导出反算）/
+是否"未启用" / 题面渲染模式（md = 走 marked.js 的 Markdown，html = 直接输出 HTML）
 凭据解析与 upload.py 一致：命令行 > upload_config.toml > 环境变量。
 """
 from __future__ import annotations
@@ -64,8 +65,11 @@ def probe(session, root: str, pid: int, with_data: bool) -> dict:
     mem = re.search(r"([0-9]+)\s*(?:MB|M)\b", body)
     info["time"] = lim.group(1) if lim else "?"
     info["memory"] = mem.group(1) if mem else "?"
-    d = re.search(r'font-content">(.*?)</div>', html, re.S)
-    info["desc"] = len(plain(d.group(1))) if d else 0
+    # 题面字符数：按 font-content 段落**累加**。Markdown 模式下每段被 <span class="md">
+    # 包住，只取第一段会被第一个 </div> 提前截断（曾把正常题误判成"题面过短"）。
+    segs = re.findall(r'font-content">(.*?)</div>', html, re.S)
+    info["desc"] = sum(len(plain(s)) for s in segs)
+    info["md"] = 'class="md"' in html
 
     if with_data:
         try:
@@ -148,20 +152,23 @@ def main(argv=None) -> int:
             print(f"{pid:<8}{'—':>6}{'—':>6}{'—':>8}{'—':>8}  {'不存在':<8}{i.get('error', '')}")
             continue
         cases = i.get("cases", "—")
-        state = "未启用" if i["disabled"] else "正常"
+        state = ("未启用" if i["disabled"] else "正常") + ("/md" if i.get("md") else "/html")
         print(f"{pid:<8}{i['desc']:>6}{str(cases):>6}{i['time'] + 's':>8}"
               f"{i['memory'] + 'MB':>8}  {state:<8}{i['title']}")
-        if i["desc"] < 20 or i["disabled"] or (isinstance(cases, int) and cases == 0):
+        if i["desc"] < 20 or (isinstance(cases, int) and cases == 0):
             bad.append(pid)
         if i["disabled"]:
             off.append(pid)
 
     print()
     if bad:
-        print(f"⚠ 可疑题目（题面过短 / 未启用 / 无用例）：{bad}")
+        print(f"⚠ 可疑题目（题面过短 / 无用例）：{bad}")
         print("  → 多半是导入器'半成功'，题面与测试点需另想办法补齐。")
     else:
-        print("✓ 以上题目：题面、用例、启用状态均正常。")
+        print("✓ 以上题目：题面与测试点均正常。")
+    if off:
+        print(f"· 未启用：{off}")
+        print("  → 本站新建题目的常态，不算导入失败；要一并启用就加 --enable")
 
     if args.enable and off:
         print("\n切为「启用」（problem_df_change.php）：")

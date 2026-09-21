@@ -240,6 +240,7 @@ def history_contestSubmit(session: Session, cid: str, pages: int = 5,
 #   （原 pcoj/oj.py 的 upload_QDUOJ_zip 没有这一步，在较新版本上会失败。）
 
 IMPORT_ENDPOINTS = {
+    # ── 老一代：admin/problem_import.php ──
     "hydro": "problem_import_hydro.php",
     "qduoj": "problem_import_qduoj.php",
     "syzoj": "problem_import_syzoj.php",
@@ -247,7 +248,53 @@ IMPORT_ENDPOINTS = {
     "tyvj": "problem_import_tyvj.php",
     "md": "problem_import_md.php",
     "xml": "problem_import_xml.php",
+    # ── 新一代（上游新版试运行）：admin/problem_import2.php ──
+    # 实测 oj.ipachong.com 上题面按 **Markdown** 渲染（<span class="md"> + marked.js），
+    # 新一代入口与之匹配；老一代会把 HTML 题面当 markdown 文本处理，格式会散。
+    # ⭐ 传 HydroOJ 包用 hydro2，传 FPS XML 用 xml2。
+    "hydro2": "problem_import_hydro2.php",
+    "xml2": "problem_import_xml2.php",
+    "qduoj2": "problem_import_qduoj2.php",
+    "syzoj2": "problem_import_syzoj2.php",
+    "hoj2": "problem_import_hoj2.php",
+    "tyvj2": "problem_import_tyvj2.php",
+    "md2": "problem_import_md2.php",
 }
+
+# 两代入口挂在不同的页面下，而 postkey 是**逐页面**写进 session 的：
+# 用哪个入口就必须去对应的页面取 postkey，取错页面会拿到对不上的 key。
+IMPORT_PAGE = "admin/problem_import.php"
+IMPORT_PAGE2 = "admin/problem_import2.php"
+
+
+def import_page(kind: str) -> str:
+    """该 kind 的 postkey 该去哪个页面取（约定：新一代 kind 一律以 `2` 结尾）。"""
+    return IMPORT_PAGE2 if kind.endswith("2") else IMPORT_PAGE
+
+
+_IMPORT_ACTION_RE = re.compile(r"action=['\"]?([^'\"\s>]*problem_import_([a-z0-9_]+)\.php)['\"]?")
+
+
+def import_kinds(session: Session, url: str | None = None) -> dict[str, str]:
+    """
+    探测该 OJ 实际装了哪些导入入口，返回 {kind: 脚本名}。
+
+    不同 HUSTOJ 部署装的两代入口不一样，硬编码 kind 会拿到 404。上传前先探测一次，
+    能把"接口不存在"变成一条清楚的提示。
+    """
+    found: dict[str, str] = {}
+    root = base_url(url)
+    for page in (IMPORT_PAGE, IMPORT_PAGE2):
+        try:
+            resp = session.get(f"{root}/{page}", headers=HEADERS)
+        except Exception:  # noqa: BLE001
+            continue
+        if resp.status_code != 200:
+            continue
+        for m in _IMPORT_ACTION_RE.finditer(resp.text):
+            script, kind = m.group(1), m.group(2)
+            found.setdefault(kind.split("/")[-1], script.split("/")[-1])
+    return found
 
 _POSTKEY_RE = re.compile(r'name=["\']postkey["\'][^>]*value=["\']([^"\']+)["\']')
 _POSTKEY_RE_ALT = re.compile(r'value=["\']([^"\']+)["\'][^>]*name=["\']postkey["\']')
@@ -271,8 +318,8 @@ def upload_problem_zip(session: Session, file_path: str, kind: str = "hydro",
     上传题目包到 HUSTOJ 后台导入接口。
 
     :param session: 已登录（且具备管理员/题目导入权限）的 requests.Session
-    :param file_path: 本地包路径（.zip；kind="xml" 时也可以是 .xml）
-    :param kind: hydro / qduoj / syzoj / hoj / tyvj / md / xml
+    :param file_path: 本地包路径（.zip；kind 以 xml 开头时也可以是 .xml）
+    :param kind: hydro2（推荐，HydroOJ 包）/ xml2（FPS XML）/ 以及老一代 hydro / xml / qduoj …
     :param url: OJ 根地址，默认 DEFAULT_BASE_URL / 环境变量 OJ_BASE_URL
     :return: 服务器返回文本（失败信息也在文本里，便于人工判断）
     """
@@ -287,7 +334,8 @@ def upload_problem_zip(session: Session, file_path: str, kind: str = "hydro",
         with open(file_path, "rb") as f:
             files = {"fps": (os.path.basename(file_path), f, mime)}
             data = {}
-            postkey = fetch_postkey(session, url)
+            # ⚠ postkey 逐页面写入 session：用哪个入口就得去对应页面取
+            postkey = fetch_postkey(session, url, page=import_page(kind))
             if postkey:
                 data["postkey"] = postkey
             resp = session.post(target, files=files, data=data or None, headers=HEADERS)

@@ -13,4 +13,7 @@ password = ""
 #   hydro → problem_import_hydro.php（本项目 export.py 产物，推荐）
 #   qduoj → problem_import_qduoj.php（QDUOJ 导出的 json+testcase zip）
 #   syzoj / hoj / tyvj / md / xml 同理
-kind = "hydro"
+# 导入入口。这台 OJ 装了两代：
+#   新一代（带后缀 2，挂在 admin/problem_import2.php，题面按 Markdown 渲染）→ 推荐
+#   老一代 hydro / xml / qduoj …（把 HTML 题面当 markdown 文本处理，格式会散）
+kind = "hydro2"
