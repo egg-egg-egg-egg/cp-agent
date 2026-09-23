@@ -19,6 +19,33 @@
 - 上传用 `upload.py --kind hydro2`（新一代入口，题面按 Markdown 渲染）。
 - Python 必须用 `.venv\Scripts\python.exe`；凭证走环境变量，不要硬编码进任何文件。
 
+## 关键坑（血泪教训，动代码/跑流水线前必读）
+
+这些坑在 `.workbuddy/memory/MEMORY.md` 有完整记录，这里列最痛的几条，每条都踩过、每条都浪费时间：
+
+1. **改源码后必须删 `problems/<题>/bin` 再跑流水线**：Windows 下 `pipeline._compile()`
+   只在 `bin/<name>` 不存在时才从 `.exe` 拷贝；改过 generator/validator/solution/naive 后
+   无扩展名副本不会更新，跑出来是旧二进制、数据毫无变化（data_strength 报「数据太弱」极难定位）。
+
+2. **用对 Python**：跑 main.py / pipeline 用 `.venv\Scripts\python.exe`；托管 python 零依赖，
+   `import` 直接 ModuleNotFoundError。
+
+3. **查重是静默降级**：`problem_data/` 题库未下载时 `search_problem_db` 不报错但没防撞题；
+   对外发布的题先补装 db 依赖 + 下载题库。
+
+4. **撞 `--max-iterations` 先放宽重试**：默认 30，放宽到 45 重试一次；多为 LLM 陷入重试循环，
+   不是题做不出来。
+
+## 当前开发分支（先确认再动手）
+
+本项目开发在 `feature/hustoj-xml-upload` 分支。开始任何工作前先确认分支：
+
+```bash
+git checkout feature/hustoj-xml-upload
+```
+
+若当前不在该分支、或改动不该提交到这个分支，先和用户确认，不要盲目在 main 上开发。
+
 ## 项目概述
 全自动算法竞赛出题 AI Agent 框架，从题目概念到完整数据包一键生成。
 
