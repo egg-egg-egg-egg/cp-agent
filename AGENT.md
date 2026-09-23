@@ -1,5 +1,24 @@
 # CP-Agent 项目文档
 
+## 出题 SOP（agent 必读）
+
+> 用户提出出题需求时，**先读 `skills/cp-agent-chuti/SKILL.md` 并照做**，不要凭记忆自由发挥。
+
+一句话流程：用户需求 → 解析 topic/difficulty/name → 跑出题 → 校验 → **等用户确认** → 上传 OJ。
+
+```bash
+# 出题（封装脚本：自动注入凭证 + 事后校验，见 skills/cp-agent-chuti/）
+.venv/Scripts/python.exe skills/cp-agent-chuti/cpgen.py --topic dp --difficulty 1500 --name my_problem
+
+# 或直接走 main.py
+.venv/Scripts/python.exe main.py --topic dp --difficulty 1500 --name my_problem --export-after hydrooj
+```
+
+硬约束：
+- 出完必须**停一步等用户确认**，不得自动上传。
+- 上传用 `upload.py --kind hydro2`（新一代入口，题面按 Markdown 渲染）。
+- Python 必须用 `.venv\Scripts\python.exe`；凭证走环境变量，不要硬编码进任何文件。
+
 ## 项目概述
 全自动算法竞赛出题 AI Agent 框架，从题目概念到完整数据包一键生成。
 
