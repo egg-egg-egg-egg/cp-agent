@@ -5,6 +5,17 @@ description: 用 cp-agent 项目全自动出一道完整算法题（题面/标�
 
 # cp-agent-chuti 出题 SOP
 
+## 维护约定（改前必读）
+
+本 skill 有**两份副本**，改动必须同步：
+
+- 远程版 `skills/cp-agent-chuti/`：随 clone 分发，提交 git。
+- 本机版 `.workbuddy/skills/cp-agent-chuti/`：WorkBuddy 自动发现，不入库。
+
+- **cpgen.py 完全同源**：REPO 用向上探测定位，两份可整文件覆盖，无差异。
+- **SKILL.md 唯一差异**：正文命令示例里 cpgen 的路径（各自指向自己那份）。
+- 改 SKILL.md 正文时，除路径外其余内容必须同步到另一份，别漏。
+
 本 skill 给 agent 用：**保证每次出题都照着流程产出完整、可上传的题目**。
 全流程 = 用户提需求 → agent 跑本项目出题 → 用户确认 → 上传平台。
 
