@@ -70,6 +70,39 @@ cd /d/Workspace/workbuddy/cp-agent
 
 单题耗时 **27–86 分钟**、**15–27 万 input token**，建议后台跑。
 
+## 零凭证模式：用 WorkBuddy 代替 API（没有 key 时走这条）
+
+`--provider workbuddy` 不出网、不读 key：每轮 LLM 调用落成
+`.llm_queue/pending/<id>.json`，等你（WorkBuddy）写入 `<id>.resp` 后继续。
+
+```bash
+# 1) 后台起进程（会阻塞在队列上等你应答）
+.venv/Scripts/python.exe main.py --topic dp --difficulty 1500 --name my_problem \
+    --provider workbuddy --test-count 20
+
+# 2) 看有什么待处理 / 读请求 / 写响应
+.venv/Scripts/python.exe workbuddy_llm.py list
+.venv/Scripts/python.exe workbuddy_llm.py show <id>
+.venv/Scripts/python.exe workbuddy_llm.py answer <id> --file my_reply.md
+```
+
+cpgen.py 也支持透传：`cpgen.py --topic dp --difficulty 1500 --name x --provider workbuddy`
+
+应答规则：读请求里的 `system` / `messages` / `tools`，然后写响应文件，三选一
+
+```text
+纯文本                                        → 本轮结束
+{"tool":"write_file","input":{...}}           → 调一个工具
+{"content":[{"type":"text",...},{"type":"tool_use",...}]}  → 多段文本 + 多工具
+```
+
+要点：
+- `compile_cpp` 的 `output` 要写完整相对路径 `bin/generator`，不是 `generator`。
+- 驱动是**阻塞**的，一次一条；没响应就等到 `timeout_sec`（默认 3600s）后报错。
+- 队列目录 `.llm_queue/` 已 gitignore。
+- 这条链路能替换**所有**原本要 key 的阶段（出题、查重裁判、独立验题、难度评审），
+  因为它们共用同一个 `llm_client` 入口。
+
 ## 校验清单（出完后必查）
 
 按顺序核 `problems/<name>/result.json`：

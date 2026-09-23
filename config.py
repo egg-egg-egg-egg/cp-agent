@@ -54,7 +54,10 @@ def _validate(cfg: dict) -> None:
             if not isinstance(pcfg, dict):
                 problems.append(f"providers.{protocol}.{name} 应为映射")
                 continue
-            for field in ("base_url", "default_model"):
+            # workbuddy 协议走本地文件队列（不需要 base_url / api_key）
+            required = ("default_model",) if protocol == "workbuddy" \
+                else ("base_url", "default_model")
+            for field in required:
                 if not pcfg.get(field):
                     problems.append(f"providers.{protocol}.{name} 缺少 {field}")
     now_model = cfg.get("nowModel") or cfg.get("now_model") or ""

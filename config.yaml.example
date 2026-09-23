@@ -128,7 +128,31 @@ stress_naive_soft_limit_sec: 10     # 对拍中 naive 软上限（秒），超�
 #   env_key       : 【选填】环境变量名，如 DEEPSEEK_API_KEY。
 #                   只接受环境变量名；填明文 key 会直接报错（请改填 api_key）
 #
+# ─── 第三种协议：workbuddy（不需要 api_key） ──────────────────────────
+# 把 LLM 能力交给 WorkBuddy 会话里的智能体：每轮调用落成 JSON 请求文件丢进
+# 队列目录，等待写入同名 .resp 后继续。适合没有 API key、或想用 WorkBuddy
+# 自带模型能力的场景。
+#
+#   providers:
+#     workbuddy:
+#       workbuddy:
+#         enabled: true
+#         default_model: "workbuddy-agent"   # 仅作标识，不参与网络请求
+#         queue_dir: ".llm_queue"            # 相对项目根（或绝对路径）
+#         timeout_sec: 3600                  # 单轮等待上限（秒）
+#
+# 用法：python main.py --topic dp --difficulty 1800 --provider workbuddy
+# 队列：python workbuddy_llm.py list | show <id> | answer <id> --file r.md | next
+#
 providers:
+  # ── WorkBuddy 驱动（无需 api_key，走本地文件队列） ──
+  workbuddy:
+    workbuddy:
+      enabled: true
+      default_model: "workbuddy-agent"
+      queue_dir: ".llm_queue"
+      timeout_sec: 3600
+
   # ── Anthropic 协议（Claude 系列） ──
   anthropic:
     anthropic:

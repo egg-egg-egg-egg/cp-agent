@@ -158,6 +158,13 @@ def call_llm_with_tools(messages: list[dict], system: str, provider: str,
 
     protocol, cfg = get_provider(provider)
     resolved_model = model or cfg["default_model"]
+
+    # WorkBuddy driver：不发网络请求，改走文件队列，由 WorkBuddy 智能体应答（无需 api_key）
+    if protocol == "workbuddy":
+        from workbuddy_llm import call_workbuddy_with_tools
+        return call_workbuddy_with_tools(messages, system, tools, cfg=cfg,
+                                         model=resolved_model, max_tokens=max_tokens)
+
     resolved_base_url = base_url or cfg["base_url"]
     resolved_api_key = resolve_api_key(cfg, cli_key=api_key, provider_name=provider or "")
 
@@ -182,6 +189,21 @@ def call_llm_text(system: str, user: str, provider: Optional[str] = None,
 
     protocol, cfg = get_provider(provider)
     resolved_model = model or cfg["default_model"]
+
+    # WorkBuddy driver：文件队列，由 WorkBuddy 智能体应答（无需 api_key）
+    if protocol == "workbuddy":
+        from workbuddy_llm import call_workbuddy_with_tools
+        resp = call_workbuddy_with_tools([{"role": "user", "content": user}],
+                                         system, [], cfg=cfg,
+                                         model=resolved_model, max_tokens=max_tokens,
+                                         stage="text_call")
+        text = "".join(b.get("text", "") for b in resp["content"] if b["type"] == "text")
+        out_tokens = resp.get("usage", {}).get("output", 0)
+        if usage_sink is not None:
+            usage_sink["input"] = usage_sink.get("input", 0) + resp.get("usage", {}).get("input", 0)
+            usage_sink["output"] = usage_sink.get("output", 0) + out_tokens
+        return text
+
     resolved_base_url = base_url or cfg["base_url"]
     resolved_api_key = resolve_api_key(cfg, cli_key=api_key, provider_name=provider or "")
 

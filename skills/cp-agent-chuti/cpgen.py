@@ -110,6 +110,9 @@ def main() -> int:
     ap.add_argument("--max-iterations", type=int, default=30)
     ap.add_argument("--export-after", default="hydrooj")
     ap.add_argument("--repo", type=Path, default=REPO)
+    # workbuddy = 零凭证模式：LLM 调用改由 WorkBuddy 会话应答（走 .llm_queue 文件队列）
+    ap.add_argument("--provider", default=None,
+                    help="LLM provider，如 openai.deepseek / workbuddy（无 api_key）")
     args = ap.parse_args()
 
     repo = args.repo
@@ -122,6 +125,8 @@ def main() -> int:
            "--test-count", str(args.test_count),
            "--max-iterations", str(args.max_iterations),
            "--export-after", args.export_after]
+    if args.provider:
+        cmd += ["--provider", args.provider]
 
     log(f"出题: {' '.join(cmd[1:])}")
     t0 = time.time()

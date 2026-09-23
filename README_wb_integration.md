@@ -192,3 +192,95 @@ copy config.yaml.example config.yaml   rem 然后在 deepseek.env_key 对应环�
 8. **上传接口的事实来源**：HUSTOJ 官方仓库
    `trunk/web/admin/problem_import_hydro.php`、`include/check_post_key.php`、`include/set_post_key.php`。
    平台若改版，先看这三个文件再动 `integrations/hustoj.py`。
+
+---
+
+## 九、WorkBuddy driver：不依赖 api_key 出题
+
+`--provider workbuddy` 是一条**零凭证**链路：不出网、不读 key，
+把每一轮 LLM 调用交给 WorkBuddy 会话里的智能体完成。
+
+### 9.1 原理
+
+`llm_client` 原有两条协议（`anthropic` / `openai`），都要求 api_key。
+新增第三条协议 `workbuddy`，实现在 `workbuddy_llm.py`：
+
+```text
+agent 循环 ──需要 LLM──> 写 .llm_queue/pending/<id>.json（system/messages/tools 全在里面）
+                              │
+                              │  阻塞等待（默认 3600s，每 30s 打印一次心跳）
+                              ▼
+                    WorkBuddy（会话里的智能体，或人）写入 <id>.resp
+                              │
+                              ▼
+                    解析 resp → 统一 content blocks → agent 继续执行工具
+```
+
+因为是"文件队列 + 等待"，它对 cp-agent 的其余部分完全透明：
+agent 循环、pipeline 工具、查重裁判、独立验题、难度评审，走的都是同一个入口，
+所以**所有原本需要 api_key 的阶段都能被替换**。
+
+### 9.2 配置
+
+`config.yaml`（已被 gitignore）：
+
+```yaml
+providers:
+  workbuddy:
+    workbuddy:
+      enabled: true
+      default_model: "workbuddy-agent"   # 仅作标识，不参与网络请求
+      queue_dir: ".llm_queue"            # 相对项目根，或绝对路径
+      timeout_sec: 3600                  # 单轮等待上限（秒）
+```
+
+环境变量可覆盖：`CP_AGENT_WB_QUEUE_DIR`、`CP_AGENT_WB_TIMEOUT`。
+
+### 9.3 用法
+
+```bat
+rem 1) 后台启动出题（会一直等在队列上）
+.venv\Scripts\python.exe main.py --topic dp --difficulty 1800 --provider workbuddy
+
+rem 2) 另一个终端 / 由 WorkBuddy 应答：看有什么待处理
+.venv\Scripts\python.exe workbuddy_llm.py list
+
+rem 3) 读完整请求（system + messages + 工具 schema）
+.venv\Scripts\python.exe workbuddy_llm.py show <id>
+
+rem 4) 写回响应
+.venv\Scripts\python.exe workbuddy_llm.py answer <id> --file my_reply.md
+```
+
+在 WorkBuddy 会话里的实际姿势：后台起进程，然后反复 `list` → 读请求 → 用
+Write 工具把内容写进 `response_path` 指向的文件，直到进程跑完。
+`workbuddy_llm.py next --timeout 600` 可以阻塞等待下一条请求并打印它的 id，
+方便脚本接力。
+
+### 9.4 响应文件格式（三选一）
+
+1. **纯文本** —— 直接写回复内容，表示本轮结束、不再调用工具。
+2. **单个工具调用**
+
+   ```json
+   {"tool": "write_file", "input": {"path": "problem.md", "content": "..."}}
+   ```
+
+3. **完整 content 数组**（多段文本 + 多个工具调用）
+
+   ```json
+   {"content": [
+     {"type": "text", "text": "我先写题面"},
+     {"type": "tool_use", "name": "write_file", "input": {"path": "problem.md", "content": "..."}}
+   ]}
+   ```
+
+容错：```json 围栏会自动剥掉；解析失败则整段按纯文本处理；空文件视为"还没写完"，继续等。
+想中止本轮，创建 `<id>.cancel` 文件而不是写 `.resp`。
+
+### 9.5 注意
+
+- driver 是**阻塞**的：一次只处理一条请求，响应不到就一直等（直到超时报错）。
+- 队列目录已加入 `.gitignore`（里面是 prompt 和响应，体积可能很大）。
+- `timeout_sec` 建议给足：一轮里可能要写几千行代码，智能体生成需要时间。
+- token 统计是估算值（`字符数/4`），只用于日志与 result.json，不影响功能。
