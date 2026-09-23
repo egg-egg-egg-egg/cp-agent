@@ -18,7 +18,23 @@ import winreg
 import zipfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent.parent  # skills/cp-agent-chuti -> 项目根
+def _find_repo() -> Path:
+    """向上查找含 main.py 与 config.yaml 的项目根。
+
+    cpgen.py 可能放在 skills/cp-agent-chuti/ 或 .workbuddy/skills/cp-agent-chuti/
+    等不同深度，故不能写死「上三级」，改为逐级上溯探测。
+    """
+    d = Path(__file__).resolve().parent
+    for _ in range(8):
+        if (d / "main.py").is_file() and (d / "config.yaml").is_file():
+            return d
+        if d.parent == d:
+            break
+        d = d.parent
+    raise FileNotFoundError("未找到项目根（需同时含 main.py 与 config.yaml）")
+
+
+REPO = _find_repo()
 VENV = REPO / ".venv" / "Scripts" / "python.exe"
 
 ENV_KEYS = ("DEEPSEEK_API_KEY", "OJ_USER", "OJ_PASSWORD")
