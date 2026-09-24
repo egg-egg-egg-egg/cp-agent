@@ -46,6 +46,19 @@ git checkout feature/hustoj-xml-upload
 
 若当前不在该分支、或改动不该提交到这个分支，先和用户确认，不要盲目在 main 上开发。
 
+## CI 出题（GitHub Actions）
+
+`.github/workflows/generate.yml` 提供 `workflow_dispatch` 手动出题：算力搬到 runner，
+产物以 artifact 下载回来。要点：
+
+- **触发前提**：workflow 文件必须在**默认分支 main** 上，Actions 页面才会出现
+  "Run workflow" 按钮。在 feature 分支写完要先合并到 main 才能用。
+- **凭证**：仓库 Settings → Secrets 放 `DEEPSEEK_API_KEY`（或 OPENAI / ANTHROPIC / MIMO 之一）。
+  CI 里执行 `cp config.yaml.example config.yaml`，provider 的 `env_key` 直接读环境变量。
+- **workbuddy provider 不能上 CI**：本地文件队列阻塞等 `.resp`，runner 上没人应答，会卡到超时。
+- **查重在 CI 上等于失效**：`problem_data/` 未入库，题库为空，批量出题会自撞。
+- **不自动上传 OJ**：遵守「出完停一步等确认」的硬约束，上传仍由人本地执行 `upload.py`。
+
 ## 项目概述
 全自动算法竞赛出题 AI Agent 框架，从题目概念到完整数据包一键生成。
 
