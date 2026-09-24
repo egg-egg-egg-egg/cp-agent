@@ -1,0 +1,154 @@
+name: Generate Problem
+
+# 手动出题：把算力搬到 GitHub runner 上跑，产物以 artifact 形式下载回去。
+#
+# ─── 一次性前提（在仓库 Settings 里做，本文件管不了） ───────────────
+# 1. Secrets 里放好 LLM key（用哪个 provider 就配哪个，缺哪个都不影响其他）：
+#      DEEPSEEK_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / MIMO_API_KEY
+# 2. 本文件必须在**默认分支(main)**上，Actions 页面才会出现 "Run workflow" 按钮。
+#
+# ─── 已知限制（不是 bug，是设计使然） ───────────────────────────────
+# · workbuddy provider 不可用：它靠本地文件队列阻塞等会话应答，runner 上没人回，
+#   会卡到 timeout_sec 才失败。CI 请只用 openai/anthropic 系列。
+# · problem_data/ 未入库 ⇒ CI 上查重题库为空。一次出一题无影响；若将来开定时批量，
+#   会失去防撞题能力（dedup 缺依赖时静默降级，不阻塞出题，但会自撞）。
+# · 不自动上传 OJ：项目硬约束要求「出完停一步等人确认」（见 AGENT.md），
+#   产物一律走 artifact，上传由人本地执行 upload.py。
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "算法主题 (dp / graph / tree / greedy / ...)"
+        required: true
+        default: "dp"
+      difficulty:
+        description: "CF rating (800-3000)"
+        required: true
+        default: "1500"
+      name:
+        description: "题目目录名；留空自动生成 <topic>_<difficulty>_<run_number>"
+        required: false
+        default: ""
+      provider:
+        description: "LLM provider（workbuddy 在 CI 上不可用）"
+        required: true
+        default: "openai.deepseek"
+      idea:
+        description: "给定大致题意让系统补全成完整题目；留空则按 topic 自由出题"
+        required: false
+        default: ""
+      extra:
+        description: "额外要求（可留空）"
+        required: false
+        default: ""
+      test_count:
+        description: "测试点数量"
+        required: true
+        default: "30"
+      stress:
+        description: "对拍轮数（调小可显著提速）"
+        required: true
+        default: "10000"
+      max_iterations:
+        description: "Agent 最大迭代轮数（本地默认 30 偏紧，CI 用 45）"
+        required: true
+        default: "45"
+      export_formats:
+        description: "成功后导出格式：luogu / hydro / polygon / all；留空不导出"
+        required: false
+        default: ""
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # 先用 testlib.h 试编译，别让编译器兼容问题藏在出题流程中途才爆
+      - name: Verify toolchain
+        run: |
+          g++ --version | head -1
+          printf '#include "testlib.h"\nint main() { return 0; }\n' > /tmp/testlib_smoke.cpp
+          g++ -std=c++17 -O2 -Wall -Wextra -I. -o /tmp/testlib_smoke /tmp/testlib_smoke.cpp
+          echo "testlib.h 可编译"
+
+      # config.yaml 被 .gitignore；provider 凭证靠 env_key 读环境变量，天然适配 Secrets
+      - name: Prepare config
+        run: cp config.yaml.example config.yaml
+
+      - name: Generate
+        id: gen
+        env:
+          IN_TOPIC: ${{ inputs.topic }}
+          IN_DIFFICULTY: ${{ inputs.difficulty }}
+          IN_NAME: ${{ inputs.name }}
+          IN_PROVIDER: ${{ inputs.provider }}
+          IN_IDEA: ${{ inputs.idea }}
+          IN_EXTRA: ${{ inputs.extra }}
+          IN_TEST_COUNT: ${{ inputs.test_count }}
+          IN_STRESS: ${{ inputs.stress }}
+          IN_MAX_ITERATIONS: ${{ inputs.max_iterations }}
+          IN_EXPORT: ${{ inputs.export_formats }}
+        run: |
+          NAME="$IN_NAME"
+          if [ -z "$NAME" ]; then
+            NAME="${IN_TOPIC}_${IN_DIFFICULTY}_${GITHUB_RUN_NUMBER}"
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+          ARGS=(--topic "$IN_TOPIC" -d "$IN_DIFFICULTY" --name "$NAME")
+          ARGS+=(--provider "$IN_PROVIDER")
+          ARGS+=(--test-count "$IN_TEST_COUNT" --stress "$IN_STRESS")
+          ARGS+=(--max-iterations "$IN_MAX_ITERATIONS")
+          if [ -n "$IN_EXTRA" ];  then ARGS+=(--extra "$IN_EXTRA"); fi
+          if [ -n "$IN_IDEA" ];   then ARGS+=(--idea "$IN_IDEA"); fi
+          if [ -n "$IN_EXPORT" ]; then ARGS+=(--export-after "$IN_EXPORT"); fi
+
+          echo "::group::command"
+          printf '%s\n' "python main.py ${ARGS[*]}"
+          echo "::endgroup::"
+          python main.py "${ARGS[@]}"
+
+      - name: Problem summary
+        if: always()
+        run: |
+          D="problems/${{ steps.gen.outputs.name }}"
+          if [ -f "$D/problem.md" ]; then
+            {
+              echo "## $(basename "$D")"
+              echo
+              echo "- 测试点: $(ls -1 "$D/inputs" 2>/dev/null | wc -l)"
+              echo
+              echo '```'
+              head -n 120 "$D/problem.md"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "未生成 problem.md —— 出题失败，见 Generate 步骤日志" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: problem-${{ github.run_id }}
+          path: problems/${{ steps.gen.outputs.name }}
+          if-no-files-found: warn
+          retention-days: 30
