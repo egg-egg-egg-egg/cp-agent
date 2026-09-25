@@ -57,6 +57,9 @@ git checkout feature/hustoj-xml-upload
   CI 里执行 `cp config.yaml.example config.yaml`，provider 的 `env_key` 直接读环境变量。
 - **workbuddy provider 不能上 CI**：本地文件队列阻塞等 `.resp`，runner 上没人应答，会卡到超时。
 - **查重在 CI 上等于失效**：`problem_data/` 未入库，题库为空，批量出题会自撞。
+- **防自撞靠 `known_problems.txt`**（仓库根目录）：CI 读取后注入 `--extra`，要求 LLM 避开。
+  **出新题后必须手动追加一行**（题名 — 摘要，写清算法要点）。
+  放在根目录而非 `problems/` 下，是因为 `problems/*` 被 gitignore，放进去提交不上去。
 - **不自动上传 OJ**：遵守「出完停一步等确认」的硬约束，上传仍由人本地执行 `upload.py`。
 
 ## 项目概述
