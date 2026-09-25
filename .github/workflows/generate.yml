@@ -7,13 +7,25 @@ name: Generate Problem
 #      DEEPSEEK_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / MIMO_API_KEY
 # 2. 本文件必须在**默认分支(main)**上，Actions 页面才会出现 "Run workflow" 按钮。
 #
-# ─── 已知限制（不是 bug，是设计使然） ───────────────────────────────
-# · workbuddy provider 不可用：它靠本地文件队列阻塞等会话应答，runner 上没人回，
+# ─── 防自撞（轻量方案，不依赖 256MB 题库） ─────────────────────────
+# 仓库根目录的 `known_problems.txt` 记录我们出过的题，CI 会读它并注入 --extra，
+# 要求 LLM 避开。**出新题后手动追加一行** —— 刻意不做自动写回，
+# 否则 main 上会出现机器提交，且违背「出完等人确认」的约束。
+# 注意：这只防「撞自己」，不防「撞公开题库」（那需要 problem_data/，见下）。
+#
+# ─── 已知限制 ─────────────────────────────────────────────────────
+# · workbuddy provider 不可用：靠本地文件队列阻塞等会话应答，runner 上没人回，
 #   会卡到 timeout_sec 才失败。CI 请只用 openai/anthropic 系列。
-# · problem_data/ 未入库 ⇒ CI 上查重题库为空。一次出一题无影响；若将来开定时批量，
-#   会失去防撞题能力（dedup 缺依赖时静默降级，不阻塞出题，但会自撞）。
+# · 不与公开题库查重：problem_data/ 里的 problems.db 有 185.8MB，
+#   超过 GitHub 单文件 100MB 硬限，无法入库；Git LFS 带宽 1GB/月也不够每次拉取。
+#   出题量不大 + 面向初学者，撞公开题库概率低，暂不处理。
 # · 不自动上传 OJ：项目硬约束要求「出完停一步等人确认」（见 AGENT.md），
 #   产物一律走 artifact，上传由人本地执行 upload.py。
+#
+# ─── 版本升级记录 ─────────────────────────────────────────────────
+# 2026-09-26：actions 升到 v7（checkout v7.0.1 / setup-python v7.0.0 /
+#   upload-artifact v7.0.1），消除 Node.js 20 deprecation 警告。
+#   回退点：远端分支 backup/ci-before-v7（= 旧版 v4/v5 + 无防自撞）。
 
 on:
   workflow_dispatch:
@@ -70,9 +82,9 @@ jobs:
       MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -81,7 +93,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
-      # 先用 testlib.h 试编译，别让编译器兼容问题藏在出题流程中途才爆
+      # 先用 testlib.h 试编译，别让编译器兼容问题藏在出题流程中途才爆。
+      # 2026-10-19 起 ubuntu-latest 迁到 Ubuntu 26（g++ 版本会变），这步会第一时间报警。
       - name: Verify toolchain
         run: |
           g++ --version | head -1
@@ -113,12 +126,22 @@ jobs:
           fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
+          # 防自撞：把已出题清单并进 --extra（known_problems.txt 不存在则跳过）
+          # 走临时文件拼接 —— 直接在 YAML 块标量里写多行字符串会被缩进规则吃掉
+          EXTRA="$IN_EXTRA"
+          if [ -s known_problems.txt ]; then
+            printf '%s\n以下是我们已经出过的题目。你必须出一道与之不重复、也不高度相似的题：\n' \
+              "$IN_EXTRA" > /tmp/known_extra.txt
+            grep -v '^#' known_problems.txt >> /tmp/known_extra.txt
+            EXTRA="$(cat /tmp/known_extra.txt)"
+          fi
+
           ARGS=(--topic "$IN_TOPIC" -d "$IN_DIFFICULTY" --name "$NAME")
           ARGS+=(--provider "$IN_PROVIDER")
           ARGS+=(--test-count "$IN_TEST_COUNT" --stress "$IN_STRESS")
           ARGS+=(--max-iterations "$IN_MAX_ITERATIONS")
-          if [ -n "$IN_EXTRA" ];  then ARGS+=(--extra "$IN_EXTRA"); fi
-          if [ -n "$IN_IDEA" ];   then ARGS+=(--idea "$IN_IDEA"); fi
+          if [ -n "$EXTRA" ];    then ARGS+=(--extra "$EXTRA"); fi
+          if [ -n "$IN_IDEA" ];  then ARGS+=(--idea "$IN_IDEA"); fi
           if [ -n "$IN_EXPORT" ]; then ARGS+=(--export-after "$IN_EXPORT"); fi
 
           echo "::group::command"
@@ -139,6 +162,8 @@ jobs:
               echo '```'
               head -n 120 "$D/problem.md"
               echo '```'
+              echo
+              echo "> 题做完后，记得把题名追加到 \`known_problems.txt\`，否则下次可能撞题。"
             } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "未生成 problem.md —— 出题失败，见 Generate 步骤日志" >> "$GITHUB_STEP_SUMMARY"
@@ -146,7 +171,7 @@ jobs:
 
       - name: Upload artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: problem-${{ github.run_id }}
           path: problems/${{ steps.gen.outputs.name }}
