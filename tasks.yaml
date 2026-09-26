@@ -35,7 +35,7 @@ problems:
   - {id: "013", topic: simulation,        focus: "字符串模拟-回文判定与构造",         difficulty: 900,  status: done, name: "simulation_900_6"}
   - {id: "014", topic: simulation,        focus: "日期推算-日历与星期",               difficulty: 1000, status: done, name: "simulation_1000_7"}
   - {id: "015", topic: simulation,        focus: "矩阵模拟-螺旋遍历",                 difficulty: 1000, status: done, name: "simulation_1000_19"}
-  - {id: "016", topic: simulation,        focus: "队列模拟-排队与调度",               difficulty: 1100, status: pending, name: ""}
+  - {id: "016", topic: simulation,        focus: "队列模拟-排队与调度",               difficulty: 1100, status: done, name: "simulation_1100_34"}
   - {id: "017", topic: simulation,        focus: "栈模拟-括号匹配变式",               difficulty: 1100, status: pending, name: ""}
   - {id: "018", topic: simulation,        focus: "状态机模拟-有限状态转移",           difficulty: 1200, status: pending, name: ""}
   - {id: "019", topic: simulation,        focus: "高精度模拟-大整数运算",             difficulty: 1200, status: pending, name: ""}
