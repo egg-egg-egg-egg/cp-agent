@@ -27,8 +27,8 @@ def _text(content) -> str:
 
 
 async def main() -> int:
-    from mcp.client.stdio import StdioServerParameters, stdio_client
     from mcp.client.session import ClientSession
+    from mcp.client.stdio import StdioServerParameters, stdio_client
 
     params = StdioServerParameters(
         command=str(VENV_PY),
