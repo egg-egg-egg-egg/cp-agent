@@ -55,7 +55,11 @@ def tasklist_recall(query: str, top_k: int = 8, reason: str = "") -> dict:
         text = f"{t.get('focus', '')} {t.get('name', '')}"
         scored.append((_bigram_dice(query, text), t))
     scored.sort(key=lambda x: -x[0])
-    scored = scored[:max(1, min(int(top_k or 8), 20))]
+    # 刻意不做 top-k 截断：候选池就是已出题（≤100 条、每条 focus 约 14 字），
+    # 全量送裁判的 prompt 增量约 1000 token，远低于「漏判一道重复题」的代价。
+    # 曾经用 top_k=8 截断 —— 实测 done=10 时覆盖率就只剩 50%，且截断依据的 bigram
+    # 词面重叠对中文短描述并不可靠。检索是给大规模场景（公开题库）用的，100 条不需要。
+    scored = scored[:200]  # 保险丝：防御 tasks.yaml 异常膨胀
 
     results = []
     for i, (s, t) in enumerate(scored, 1):
