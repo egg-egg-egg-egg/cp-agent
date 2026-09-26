@@ -57,9 +57,14 @@ git checkout feature/hustoj-xml-upload
   CI 里执行 `cp config.yaml.example config.yaml`，provider 的 `env_key` 直接读环境变量。
 - **workbuddy provider 不能上 CI**：本地文件队列阻塞等 `.resp`，runner 上没人应答，会卡到超时。
 - **查重在 CI 上等于失效**：`problem_data/` 未入库，题库为空，批量出题会自撞。
-- **防自撞靠 `known_problems.txt`**（仓库根目录）：CI 读取后注入 `--extra`，要求 LLM 避开。
-  **出新题后必须手动追加一行**（题名 — 摘要，写清算法要点）。
-  放在根目录而非 `problems/` 下，是因为 `problems/*` 被 gitignore，放进去提交不上去。
+- **`tasks.yaml` 是唯一数据源**：出题前读它取任务（topic / focus / difficulty），成功后
+  回写 status=done + name 并 commit 回 main。三层防自撞都挂在它上面：
+  ① focus 把考点切细，LLM 只看自己那一行；② 同 topic 已出题注入 `--extra` 做预防；
+  ③ agent 内的 `dedup_check` 用 LLM 裁判判定（向量库不可用时自动回退 tasks.yaml 轻量召回，
+  判 must_change 会拦截造数据）。维护用 `python tasklist.py {next|stats|context|mark-done}`。
+- **本地与 CI 都会写 `tasks.yaml`**，小心本地旧版本覆盖 CI 的进度。每次跑完 CI 后执行：
+  `git fetch myfork main && git merge --ff-only myfork/main`，
+  再切回开发分支 `git checkout main -- tasks.yaml` 同步状态。
 - **不自动上传 OJ**：遵守「出完停一步等确认」的硬约束，上传仍由人本地执行 `upload.py`。
 
 ## 项目概述
