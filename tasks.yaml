@@ -80,7 +80,7 @@ problems:
   - {id: "050", topic: prefix_sum,        focus: "二维差分-矩阵区间修改",             difficulty: 1400, status: pending, name: ""}
 
   # ── 动态规划 dp（新增 14 题，共 18）───────────────────────────────
-  - {id: "051", topic: dp,                focus: "计数DP-带障碍路径计数",             difficulty: 1200, status: pending, name: ""}
+  - {id: "051", topic: dp,                focus: "计数DP-带障碍路径计数",             difficulty: 1200, status: done, name: "dp_1200_12"}
   - {id: "052", topic: dp,                focus: "线性DP-最长上升子序列",             difficulty: 1300, status: pending, name: ""}
   - {id: "053", topic: dp,                focus: "01背包-方案数统计",                 difficulty: 1200, status: pending, name: ""}
   - {id: "054", topic: dp,                focus: "完全背包-无限次选取",               difficulty: 1200, status: pending, name: ""}
