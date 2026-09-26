@@ -91,7 +91,7 @@ problems:
   - {id: "059", topic: dp,                focus: "多重背包-二进制拆分",               difficulty: 1500, status: done, name: "dp_1500_91"}
   - {id: "060", topic: dp,                focus: "树形DP-子树统计入门",               difficulty: 1600, status: done, name: "dp_1600_96"}
   - {id: "061", topic: dp,                focus: "状态压缩-棋盘覆盖",                 difficulty: 1600, status: done, name: "dp_1600_99"}
-  - {id: "062", topic: dp,                focus: "状压DP-集合选取计数",               difficulty: 1700, status: pending, name: ""}
+  - {id: "062", topic: dp,                focus: "状压DP-集合选取计数",               difficulty: 1700, status: done, name: "dp_1700_102"}
   - {id: "063", topic: dp,                focus: "概率DP-期望步数",                   difficulty: 1700, status: pending, name: ""}
   - {id: "064", topic: dp,                focus: "DP优化-单调队列滑动窗口",           difficulty: 1600, status: pending, name: ""}
 
