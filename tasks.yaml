@@ -113,7 +113,7 @@ problems:
   - {id: "077", topic: math,              focus: "同余运算-整除性质",                 difficulty: 1200, status: done, name: "math_1200_74"}
   - {id: "078", topic: math,              focus: "排列组合-组合计数",                 difficulty: 1300, status: done, name: "math_1300_82"}
   - {id: "079", topic: math,              focus: "素数筛法-区间质数",                 difficulty: 1300, status: done, name: "math_1300_88"}
-  - {id: "080", topic: math,              focus: "扩展欧几里得-不定方程",             difficulty: 1500, status: pending, name: ""}
+  - {id: "080", topic: math,              focus: "扩展欧几里得-不定方程",             difficulty: 1500, status: done, name: "math_1500_93"}
 
   # ── 搜索 bfs_dfs（6 题）──────────────────────────────────────────
   - {id: "081", topic: bfs_dfs,           focus: "DFS-全排列枚举",                    difficulty: 900,  status: done, name: "bfs_dfs_900_21"}
