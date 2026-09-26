@@ -112,7 +112,7 @@ problems:
   - {id: "076", topic: math,              focus: "最大公约数-辗转相除",               difficulty: 1200, status: done, name: "math_1200_66"}
   - {id: "077", topic: math,              focus: "同余运算-整除性质",                 difficulty: 1200, status: done, name: "math_1200_74"}
   - {id: "078", topic: math,              focus: "排列组合-组合计数",                 difficulty: 1300, status: done, name: "math_1300_82"}
-  - {id: "079", topic: math,              focus: "素数筛法-区间质数",                 difficulty: 1300, status: pending, name: ""}
+  - {id: "079", topic: math,              focus: "素数筛法-区间质数",                 difficulty: 1300, status: done, name: "math_1300_88"}
   - {id: "080", topic: math,              focus: "扩展欧几里得-不定方程",             difficulty: 1500, status: pending, name: ""}
 
   # ── 搜索 bfs_dfs（6 题）──────────────────────────────────────────
