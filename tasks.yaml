@@ -76,7 +76,7 @@ problems:
   - {id: "046", topic: prefix_sum,        focus: "二维前缀和-子矩阵求和",             difficulty: 1100, status: done, name: "prefix_sum_1100_45"}
   - {id: "047", topic: prefix_sum,        focus: "前缀最值-维护历史最优",             difficulty: 1200, status: done, name: "prefix_sum_1200_57"}
   - {id: "048", topic: prefix_sum,        focus: "差分+前缀和-多次区间操作",          difficulty: 1200, status: done, name: "prefix_sum_1200_67"}
-  - {id: "049", topic: prefix_sum,        focus: "前缀计数-同余配对",                 difficulty: 1400, status: pending, name: ""}
+  - {id: "049", topic: prefix_sum,        focus: "前缀计数-同余配对",                 difficulty: 1400, status: done, name: "prefix_sum_1400_75"}
   - {id: "050", topic: prefix_sum,        focus: "二维差分-矩阵区间修改",             difficulty: 1400, status: pending, name: ""}
 
   # ── 动态规划 dp（新增 14 题，共 18）───────────────────────────────
