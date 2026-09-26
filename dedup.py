@@ -12,6 +12,89 @@ from llm_client import call_llm_text
 _logger = logging.getLogger("cp_agent.dedup")
 
 
+def _bigram_dice(a: str, b: str) -> float:
+    """字符 bigram 的 Dice 系数（0-1），用于没有向量库时的粗排。"""
+    a = "".join(str(a).split()).lower()
+    b = "".join(str(b).split()).lower()
+    if len(a) < 2 or len(b) < 2:
+        return 0.0
+    ga = {a[i:i + 2] for i in range(len(a) - 1)}
+    gb = {b[i:i + 2] for i in range(len(b) - 1)}
+    if not ga or not gb:
+        return 0.0
+    return 2 * len(ga & gb) / (len(ga) + len(gb))
+
+
+def tasklist_recall(query: str, top_k: int = 8, reason: str = "") -> dict:
+    """
+    轻量召回后端：不依赖 faiss / 向量库，以 tasks.yaml 里 status=done 的题为候选池。
+
+    为什么需要它：problem_data/ 的 problems.db 有 185.8MB，超过 GitHub 单文件
+    100MB 硬限，无法入库，CI 上原本是「查重静默跳过」。改为从 tasks.yaml 召回后，
+    候选池与题目总量脱钩（100 题 / 20 个 topic ≈ 5 条每主题），再交给
+    dedup_check 已有的 LLM 裁判段判定，构成防自撞围栏。
+
+    已知限制：CI 上 problems/ 不入库，候选只有 tasks.yaml 的 focus 摘要、没有完整
+    题面 —— 信息量弱于向量库召回，但足以让裁判识别「同一考点换皮」。
+    """
+    try:
+        from tasklist import load_tasks
+        tasks = load_tasks()
+    except Exception as e:  # noqa: BLE001 — 任何异常都降级，不中断出题
+        return {"success": False, "disabled": True, "query": query,
+                "message": f"轻量召回不可用（tasks.yaml 读取失败：{e}）；本次跳过查重。"}
+
+    done = [t for t in tasks
+            if t.get("status") == "done" and (t.get("focus") or t.get("name"))]
+    if not done:
+        return {"success": False, "disabled": True, "query": query,
+                "message": "轻量召回无候选（tasks.yaml 里还没有 status=done 的题）；本次跳过查重。"}
+
+    scored = []
+    for t in done:
+        text = f"{t.get('focus', '')} {t.get('name', '')}"
+        scored.append((_bigram_dice(query, text), t))
+    scored.sort(key=lambda x: -x[0])
+    scored = scored[:max(1, min(int(top_k or 8), 20))]
+
+    results = []
+    for i, (s, t) in enumerate(scored, 1):
+        focus = t.get("focus", "")
+        # 映射到 [0.55, 1.0]：单调保序，同时保证达到裁判触发线（默认 0.5）。
+        # 候选池本来就小，宁可多送一次裁判，也不漏判撞题。
+        score = round(min(1.0, 0.55 + 0.45 * s), 4)
+        results.append({
+            "rank": i,
+            "final_score": score,
+            "vector_score": score,
+            "source": "tasks",
+            "source_id": str(t.get("id", "")),
+            "title": focus,
+            "url": "",
+            "tags": t.get("topic", ""),
+            "difficulty": t.get("difficulty", ""),
+            "matched_terms": [],
+            "term_coverage": 0,
+            "term_strength": 0,
+            "snippet": (f"考点：{focus}；主题：{t.get('topic', '')}；"
+                        f"难度：CF {t.get('difficulty', '')}；"
+                        f"目录：{t.get('name', '') or '未记录'}"),
+        })
+
+    top = results[0]["vector_score"] if results else 0.0
+    suffix = f"：{reason}" if reason else ""
+    return {
+        "success": True,
+        "source": "tasks.yaml",
+        "message": (f"轻量召回完成（向量库不可用{suffix}）：从 tasks.yaml 的 {len(done)} "
+                    f"道已出题中取 {len(results)} 条候选，最高词面相似度 {top:.2f}。"
+                    "候选将交给 LLM 裁判判定是否同一题目模型。"),
+        "query": query,
+        "top_vector_score": top,
+        "results": results,
+    }
+
+
 def search_problem_db(query: str, top_k: int = 8) -> dict:
     """Search local problem DB with hybrid retrieval for duplicate checking."""
     try:
@@ -52,17 +135,11 @@ def search_problem_db(query: str, top_k: int = 8) -> dict:
             "results": results,
         }
     except (ModuleNotFoundError, ImportError) as e:
-        _logger.warning("search_problem_db 依赖缺失(%s)，查重未启用，已跳过", e)
-        return {
-            "success": False,
-            "disabled": True,
-            "message": (
-                f"查重库未启用：缺少依赖 {getattr(e, 'name', '') or e}。"
-                "需安装 db 依赖（numpy/faiss/sentence-transformers）并下载题库后再用；"
-                "本次跳过查重，不影响出题。"
-            ),
-            "query": query,
-        }
+        # 向量库不可用不再直接放弃查重 —— 回退到 tasks.yaml 轻量召回，
+        # 候选照常送 LLM 裁判，防自撞围栏在无 faiss 环境下依然成立。
+        reason = str(getattr(e, "name", "") or e)
+        _logger.warning("向量库依赖缺失(%s)，回退 tasks.yaml 轻量召回", reason)
+        return tasklist_recall(query, top_k, reason=reason)
     except Exception as e:
         _logger.exception("search_problem_db failed for query=%r", query)
         return {"success": False, "message": f"本地题库搜索失败: {e}", "query": query}
