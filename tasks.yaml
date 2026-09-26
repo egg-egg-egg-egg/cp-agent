@@ -58,7 +58,7 @@ problems:
   - {id: "032", topic: greedy,            focus: "区间贪心-活动选择",                 difficulty: 1000, status: done, name: "greedy_1000_43"}
   - {id: "033", topic: greedy,            focus: "资源分配-最大化收益",               difficulty: 1200, status: done, name: "greedy_1200_55"}
   - {id: "034", topic: greedy,            focus: "相邻交换-排序依据推导",             difficulty: 1300, status: done, name: "greedy_1300_65"}
-  - {id: "035", topic: greedy,            focus: "贪心+优先队列-动态维护最优",        difficulty: 1400, status: pending, name: ""}
+  - {id: "035", topic: greedy,            focus: "贪心+优先队列-动态维护最优",        difficulty: 1400, status: done, name: "greedy_1400_73"}
   - {id: "036", topic: greedy,            focus: "反悔贪心-带撤销的选择",             difficulty: 1500, status: pending, name: ""}
   - {id: "037", topic: greedy,            focus: "贪心构造-构造可行序列",             difficulty: 1500, status: pending, name: ""}
   - {id: "038", topic: greedy,            focus: "交换论证-贪心正确性",               difficulty: 1600, status: pending, name: ""}
