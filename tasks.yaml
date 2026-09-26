@@ -40,7 +40,7 @@ problems:
   - {id: "018", topic: simulation,        focus: "状态机模拟-有限状态转移",           difficulty: 1200, status: done, name: "simulation_1200_58"}
   - {id: "019", topic: simulation,        focus: "高精度模拟-大整数运算",             difficulty: 1200, status: done, name: "simulation_1200_68"}
   - {id: "020", topic: simulation,        focus: "棋盘模拟-行走与碰撞",               difficulty: 1300, status: done, name: "simulation_1300_89"}
-  - {id: "021", topic: simulation,        focus: "时间轴模拟-事件驱动处理",           difficulty: 1400, status: pending, name: ""}
+  - {id: "021", topic: simulation,        focus: "时间轴模拟-事件驱动处理",           difficulty: 1400, status: done, name: "simulation_1400_94"}
   - {id: "022", topic: simulation,        focus: "分阶段模拟-多步骤推进",             difficulty: 1500, status: pending, name: ""}
   - {id: "023", topic: simulation,        focus: "规则模拟-优先级调度",               difficulty: 1600, status: pending, name: ""}
 
