@@ -143,4 +143,4 @@ problems:
   # ── 构造 constructive（3 题）─────────────────────────────────────
   - {id: "098", topic: constructive,      focus: "简单构造-满足条件的排列",           difficulty: 1000, status: done, name: "constructive_1000_10"}
   - {id: "099", topic: constructive,      focus: "构造+贪心-字典序最优",              difficulty: 1400, status: done, name: "constructive_1400_25"}
-  - {id: "100", topic: constructive,      focus: "构造判定-可行性分析",               difficulty: 1700, status: pending, name: ""}
+  - {id: "100", topic: constructive,      focus: "构造判定-可行性分析",               difficulty: 1700, status: done, name: "constructive_1700_51"}
