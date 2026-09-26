@@ -1,0 +1,146 @@
+# tasks.yaml —— 出题任务清单（100 题，面向 CSP-J/S 初学到进阶）
+#
+# 字段说明
+#   id          三位编号，仅用于排序与追踪
+#   topic       算法主题，需与 config.yaml 的 topics 对应
+#   focus       考点细分 —— 这一栏是防重复的第一道闸门：
+#               同一 topic 下把考点切细，100 题对应 100 个不同格子，
+#               LLM 出题时只看自己这一行，重复的根源在设计阶段就被消除
+#   difficulty  Codeforces rating（800~1800，中考纲范围内）
+#   status      pending（待出）/ done（已出）/ failed（出题失败，需人工介入）
+#   name        题目目录名；status=done 时由 CI 自动回填
+#
+# 维护约定
+#   · CI 出题成功后会**自动把 status 改成 done 并回填 name**（commit 回 main）
+#   · 想调整内容直接改本文件；想跳过的题把 status 改成 failed 即可
+#   · 难度梯度参考：入门 800-1000 / 基础 1100-1400 / 进阶 1500-1800
+#   · 已刻意避开五年真题未考的项：线段树、树形DP、网络流、复杂几何
+
+problems:
+  # ── 已完成（9 题，来自本地与 CI 首跑）────────────────────────────
+  - {id: "001", topic: string,            focus: "字符串-首尾相同子串统计",           difficulty: 1100, status: done,    name: "cspj_t1_string"}
+  - {id: "002", topic: greedy,            focus: "区间贪心-最少教室数",               difficulty: 1200, status: done,    name: "cspj_t2_greedy"}
+  - {id: "003", topic: dp,                focus: "字符串拆分DP-方案数",               difficulty: 1300, status: done,    name: "cspj_t3_dp"}
+  - {id: "004", topic: string,            focus: "解析+排序-字母数字复合编号",        difficulty: 1000, status: done,    name: "mock1_book"}
+  - {id: "005", topic: prefix_sum,        focus: "扫描线-最大重叠区间",               difficulty: 1200, status: done,    name: "mock1_stage"}
+  - {id: "006", topic: dp,                focus: "DP+单调队列-建塔最小代价",          difficulty: 1600, status: done,    name: "mock1_tower"}
+  - {id: "007", topic: binary_search,     focus: "二分答案+差分-浇水长高",            difficulty: 1400, status: done,    name: "mock1_water"}
+  - {id: "008", topic: dp,                focus: "线性DP-不相邻取数",                 difficulty: 1100, status: done,    name: "smoke_dp2"}
+  - {id: "009", topic: dp,                focus: "DP+前缀最值-约束下最大和",          difficulty: 1500, status: done,    name: "ci_1_dp"}
+
+  # ── 模拟 simulation（14 题）──────────────────────────────────────
+  - {id: "010", topic: simulation,        focus: "基础模拟-按规则逐条处理",           difficulty: 800,  status: pending, name: ""}
+  - {id: "011", topic: simulation,        focus: "计数模拟-条件筛选统计",             difficulty: 800,  status: pending, name: ""}
+  - {id: "012", topic: simulation,        focus: "进制转换-任意进制互转",             difficulty: 900,  status: pending, name: ""}
+  - {id: "013", topic: simulation,        focus: "字符串模拟-回文判定与构造",         difficulty: 900,  status: pending, name: ""}
+  - {id: "014", topic: simulation,        focus: "日期推算-日历与星期",               difficulty: 1000, status: pending, name: ""}
+  - {id: "015", topic: simulation,        focus: "矩阵模拟-螺旋遍历",                 difficulty: 1000, status: pending, name: ""}
+  - {id: "016", topic: simulation,        focus: "队列模拟-排队与调度",               difficulty: 1100, status: pending, name: ""}
+  - {id: "017", topic: simulation,        focus: "栈模拟-括号匹配变式",               difficulty: 1100, status: pending, name: ""}
+  - {id: "018", topic: simulation,        focus: "状态机模拟-有限状态转移",           difficulty: 1200, status: pending, name: ""}
+  - {id: "019", topic: simulation,        focus: "高精度模拟-大整数运算",             difficulty: 1200, status: pending, name: ""}
+  - {id: "020", topic: simulation,        focus: "棋盘模拟-行走与碰撞",               difficulty: 1300, status: pending, name: ""}
+  - {id: "021", topic: simulation,        focus: "时间轴模拟-事件驱动处理",           difficulty: 1400, status: pending, name: ""}
+  - {id: "022", topic: simulation,        focus: "分阶段模拟-多步骤推进",             difficulty: 1500, status: pending, name: ""}
+  - {id: "023", topic: simulation,        focus: "规则模拟-优先级调度",               difficulty: 1600, status: pending, name: ""}
+
+  # ── 字符串 string（新增 6 题，共 8）───────────────────────────────
+  - {id: "024", topic: string,            focus: "字符统计-频率与最值",               difficulty: 800,  status: pending, name: ""}
+  - {id: "025", topic: string,            focus: "子串查找-朴素匹配",                 difficulty: 900,  status: pending, name: ""}
+  - {id: "026", topic: string,            focus: "自定义排序-多关键字比较",           difficulty: 1000, status: pending, name: ""}
+  - {id: "027", topic: string,            focus: "双指针-滑动窗口统计",               difficulty: 1400, status: pending, name: ""}
+  - {id: "028", topic: string,            focus: "字符串构造-字典序最小",             difficulty: 1300, status: pending, name: ""}
+  - {id: "029", topic: string,            focus: "字符串哈希-判重与比较",             difficulty: 1500, status: pending, name: ""}
+
+  # ── 贪心 greedy（新增 9 题，共 10）────────────────────────────────
+  - {id: "030", topic: greedy,            focus: "简单贪心-局部最优选择",             difficulty: 800,  status: pending, name: ""}
+  - {id: "031", topic: greedy,            focus: "排序贪心-按关键字取用",             difficulty: 900,  status: pending, name: ""}
+  - {id: "032", topic: greedy,            focus: "区间贪心-活动选择",                 difficulty: 1000, status: pending, name: ""}
+  - {id: "033", topic: greedy,            focus: "资源分配-最大化收益",               difficulty: 1200, status: pending, name: ""}
+  - {id: "034", topic: greedy,            focus: "相邻交换-排序依据推导",             difficulty: 1300, status: pending, name: ""}
+  - {id: "035", topic: greedy,            focus: "贪心+优先队列-动态维护最优",        difficulty: 1400, status: pending, name: ""}
+  - {id: "036", topic: greedy,            focus: "反悔贪心-带撤销的选择",             difficulty: 1500, status: pending, name: ""}
+  - {id: "037", topic: greedy,            focus: "贪心构造-构造可行序列",             difficulty: 1500, status: pending, name: ""}
+  - {id: "038", topic: greedy,            focus: "交换论证-贪心正确性",               difficulty: 1600, status: pending, name: ""}
+
+  # ── 二分 binary_search（新增 5 题，共 6）──────────────────────────
+  - {id: "039", topic: binary_search,     focus: "二分查找-有序定位与边界",           difficulty: 800,  status: pending, name: ""}
+  - {id: "040", topic: binary_search,     focus: "二分答案-最小化最大值",             difficulty: 1300, status: pending, name: ""}
+  - {id: "041", topic: binary_search,     focus: "二分答案-最大化最小值",             difficulty: 1400, status: pending, name: ""}
+  - {id: "042", topic: binary_search,     focus: "二分+贪心-判定函数构造",            difficulty: 1500, status: pending, name: ""}
+  - {id: "043", topic: binary_search,     focus: "二分+前缀和-区间判定",              difficulty: 1500, status: pending, name: ""}
+
+  # ── 前缀和与差分 prefix_sum（新增 7 题，共 8）─────────────────────
+  - {id: "044", topic: prefix_sum,        focus: "一维前缀和-区间求和",               difficulty: 800,  status: pending, name: ""}
+  - {id: "045", topic: prefix_sum,        focus: "差分数组-区间修改单点查",           difficulty: 1000, status: pending, name: ""}
+  - {id: "046", topic: prefix_sum,        focus: "二维前缀和-子矩阵求和",             difficulty: 1100, status: pending, name: ""}
+  - {id: "047", topic: prefix_sum,        focus: "前缀最值-维护历史最优",             difficulty: 1200, status: pending, name: ""}
+  - {id: "048", topic: prefix_sum,        focus: "差分+前缀和-多次区间操作",          difficulty: 1200, status: pending, name: ""}
+  - {id: "049", topic: prefix_sum,        focus: "前缀计数-同余配对",                 difficulty: 1400, status: pending, name: ""}
+  - {id: "050", topic: prefix_sum,        focus: "二维差分-矩阵区间修改",             difficulty: 1400, status: pending, name: ""}
+
+  # ── 动态规划 dp（新增 14 题，共 18）───────────────────────────────
+  - {id: "051", topic: dp,                focus: "计数DP-带障碍路径计数",             difficulty: 1200, status: pending, name: ""}
+  - {id: "052", topic: dp,                focus: "线性DP-最长上升子序列",             difficulty: 1300, status: pending, name: ""}
+  - {id: "053", topic: dp,                focus: "01背包-方案数统计",                 difficulty: 1200, status: pending, name: ""}
+  - {id: "054", topic: dp,                focus: "完全背包-无限次选取",               difficulty: 1200, status: pending, name: ""}
+  - {id: "055", topic: dp,                focus: "分组背包-每组选一件",               difficulty: 1400, status: pending, name: ""}
+  - {id: "056", topic: dp,                focus: "序列DP-编辑距离",                   difficulty: 1400, status: pending, name: ""}
+  - {id: "057", topic: dp,                focus: "区间DP-合并代价最小",               difficulty: 1500, status: pending, name: ""}
+  - {id: "058", topic: dp,                focus: "区间DP-最长回文子序列",             difficulty: 1500, status: pending, name: ""}
+  - {id: "059", topic: dp,                focus: "多重背包-二进制拆分",               difficulty: 1500, status: pending, name: ""}
+  - {id: "060", topic: dp,                focus: "树形DP-子树统计入门",               difficulty: 1600, status: pending, name: ""}
+  - {id: "061", topic: dp,                focus: "状态压缩-棋盘覆盖",                 difficulty: 1600, status: pending, name: ""}
+  - {id: "062", topic: dp,                focus: "状压DP-集合选取计数",               difficulty: 1700, status: pending, name: ""}
+  - {id: "063", topic: dp,                focus: "概率DP-期望步数",                   difficulty: 1700, status: pending, name: ""}
+  - {id: "064", topic: dp,                focus: "DP优化-单调队列滑动窗口",           difficulty: 1600, status: pending, name: ""}
+
+  # ── 数据结构 data_structure（7 题）───────────────────────────────
+  - {id: "065", topic: data_structure,    focus: "哈希表-计数与去重",                 difficulty: 1100, status: pending, name: ""}
+  - {id: "066", topic: data_structure,    focus: "栈-表达式求值",                     difficulty: 1100, status: pending, name: ""}
+  - {id: "067", topic: data_structure,    focus: "链表模拟-插入与删除",               difficulty: 1200, status: pending, name: ""}
+  - {id: "068", topic: data_structure,    focus: "单调栈-下一个更大元素",             difficulty: 1300, status: pending, name: ""}
+  - {id: "069", topic: data_structure,    focus: "优先队列-动态中位数",               difficulty: 1400, status: pending, name: ""}
+  - {id: "070", topic: data_structure,    focus: "双端队列-BFS 优化",                 difficulty: 1400, status: pending, name: ""}
+  - {id: "071", topic: data_structure,    focus: "堆-合并有序序列",                   difficulty: 1500, status: pending, name: ""}
+
+  # ── 数学 math（9 题）─────────────────────────────────────────────
+  - {id: "072", topic: math,              focus: "点线关系-简单几何判定",             difficulty: 900,  status: pending, name: ""}
+  - {id: "073", topic: math,              focus: "等差数列-求和公式",                 difficulty: 1000, status: pending, name: ""}
+  - {id: "074", topic: math,              focus: "质因数分解-因数统计",               difficulty: 1000, status: pending, name: ""}
+  - {id: "075", topic: math,              focus: "快速幂-模运算",                     difficulty: 1100, status: pending, name: ""}
+  - {id: "076", topic: math,              focus: "最大公约数-辗转相除",               difficulty: 1200, status: pending, name: ""}
+  - {id: "077", topic: math,              focus: "同余运算-整除性质",                 difficulty: 1200, status: pending, name: ""}
+  - {id: "078", topic: math,              focus: "排列组合-组合计数",                 difficulty: 1300, status: pending, name: ""}
+  - {id: "079", topic: math,              focus: "素数筛法-区间质数",                 difficulty: 1300, status: pending, name: ""}
+  - {id: "080", topic: math,              focus: "扩展欧几里得-不定方程",             difficulty: 1500, status: pending, name: ""}
+
+  # ── 搜索 bfs_dfs（6 题）──────────────────────────────────────────
+  - {id: "081", topic: bfs_dfs,           focus: "DFS-全排列枚举",                    difficulty: 900,  status: pending, name: ""}
+  - {id: "082", topic: bfs_dfs,           focus: "DFS-连通块计数",                    difficulty: 1000, status: pending, name: ""}
+  - {id: "083", topic: bfs_dfs,           focus: "BFS-网格最短步数",                  difficulty: 1200, status: pending, name: ""}
+  - {id: "084", topic: bfs_dfs,           focus: "二分图染色-DFS 判定",               difficulty: 1400, status: pending, name: ""}
+  - {id: "085", topic: bfs_dfs,           focus: "剪枝DFS-回溯搜索",                  difficulty: 1500, status: pending, name: ""}
+  - {id: "086", topic: bfs_dfs,           focus: "双向BFS-状态空间搜索",              difficulty: 1600, status: pending, name: ""}
+
+  # ── 图论 graph（5 题）────────────────────────────────────────────
+  - {id: "087", topic: graph,             focus: "邻接表-图的遍历",                   difficulty: 1100, status: pending, name: ""}
+  - {id: "088", topic: graph,             focus: "拓扑排序-依赖关系",                 difficulty: 1400, status: pending, name: ""}
+  - {id: "089", topic: graph,             focus: "最小生成树-Kruskal",                difficulty: 1500, status: pending, name: ""}
+  - {id: "090", topic: graph,             focus: "割点与桥-Tarjan 入门",              difficulty: 1700, status: pending, name: ""}
+  - {id: "091", topic: graph,             focus: "二分图匹配-匈牙利入门",             difficulty: 1800, status: pending, name: ""}
+
+  # ── 最短路 shortest_path（3 题）──────────────────────────────────
+  - {id: "092", topic: shortest_path,     focus: "多源最短路-Floyd",                  difficulty: 1400, status: pending, name: ""}
+  - {id: "093", topic: shortest_path,     focus: "单源最短路-Dijkstra",               difficulty: 1500, status: pending, name: ""}
+  - {id: "094", topic: shortest_path,     focus: "分层图最短路-状态扩展",             difficulty: 1800, status: pending, name: ""}
+
+  # ── 并查集 dsu（3 题）────────────────────────────────────────────
+  - {id: "095", topic: dsu,               focus: "并查集-合并与查询",                 difficulty: 1200, status: pending, name: ""}
+  - {id: "096", topic: dsu,               focus: "带权并查集-关系维护",               difficulty: 1600, status: pending, name: ""}
+  - {id: "097", topic: dsu,               focus: "并查集+离线-反向加边",              difficulty: 1700, status: pending, name: ""}
+
+  # ── 构造 constructive（3 题）─────────────────────────────────────
+  - {id: "098", topic: constructive,      focus: "简单构造-满足条件的排列",           difficulty: 1000, status: pending, name: ""}
+  - {id: "099", topic: constructive,      focus: "构造+贪心-字典序最优",              difficulty: 1400, status: pending, name: ""}
+  - {id: "100", topic: constructive,      focus: "构造判定-可行性分析",               difficulty: 1700, status: pending, name: ""}

@@ -85,6 +85,14 @@ difficulty:
 time_limit_ms: 1000       # 默认时限（毫秒）
 memory_limit_mb: 256      # 默认内存限制（MB）
 
+# --- HydroOJ 导出（平台上传格式）---
+# `python export.py problems/<name> --format hydrooj` 的默认参数，
+# 也可用 CLI 覆盖：--file-io / --no-file-io / --filename / --hydro-dir
+hydro:
+  file_io: true           # true = 读写文件（生成 file_io/input.name/output.name）；false = 标准输入输出
+  filename: ""            # file_io 文件名与测试点前缀（如 lantern → lantern.in、lantern1.in）；留空用 slug
+  subtask_type: "min"     # 子任务判分类型（min = 该子任务内所有测试点取最低分）
+
 # --- Dedup (原题查重) ---
 # 检索分数只作触发器：向量相似度（余弦，0-1）≥ dedup_judge_trigger 的候选会连同
 # 新题题面交给独立 LLM 裁判判定是否同一题目模型；门禁以裁判结论为准。
@@ -160,6 +168,8 @@ providers:
 # key 用于 CLI --topic 参数，如 --topic dp
 # 可自行增删，不影响框架运行
 topics:
+  simulation:     "模拟 (Simulation)"
+  prefix_sum:     "前缀和与差分 (Prefix Sum & Difference)"
   dp:             "动态规划 (Dynamic Programming)"
   tree:           "树上问题 (Tree Problems)"
   graph:          "图论 (Graph Theory)"

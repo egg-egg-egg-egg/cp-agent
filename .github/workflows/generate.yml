@@ -1,45 +1,50 @@
 name: Generate Problem
 
-# 手动出题：把算力搬到 GitHub runner 上跑，产物以 artifact 形式下载回去。
+# 手动出题：按 tasks.yaml 的任务清单出题，产物以 artifact 下载回去。
 #
-# ─── 一次性前提（在仓库 Settings 里做，本文件管不了） ───────────────
-# 1. Secrets 里放好 LLM key（用哪个 provider 就配哪个，缺哪个都不影响其他）：
-#      DEEPSEEK_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / MIMO_API_KEY
-# 2. 本文件必须在**默认分支(main)**上，Actions 页面才会出现 "Run workflow" 按钮。
+# ─── 设计原则：tasks.yaml 是唯一数据源 ────────────────────────────
+# 出题前读它取任务（topic / focus / difficulty），出题成功后回写 status=done
+# 并回填目录名，commit 回 main —— 形成闭环，下次运行自动接着往下出。
 #
-# ─── 防自撞（轻量方案，不依赖 256MB 题库） ─────────────────────────
-# 仓库根目录的 `known_problems.txt` 记录我们出过的题，CI 会读它并注入 --extra，
-# 要求 LLM 避开。**出新题后手动追加一行** —— 刻意不做自动写回，
-# 否则 main 上会出现机器提交，且违背「出完等人确认」的约束。
-# 注意：这只防「撞自己」，不防「撞公开题库」（那需要 problem_data/，见下）。
+# ─── 三层防自撞 ──────────────────────────────────────────────────
+# 第 1 层 tasks.yaml 的 focus 把考点切细 —— LLM 只看自己那一行，看不到其余 99 行，
+#         结构性重复在设计阶段就被消除，不靠 LLM 避让。
+# 第 2 层 Generate 步骤把「本行考点 + 同 topic 已出题」注入 --extra 做预防；
+#         候选池与题目总量脱钩（同 topic 平均 5~18 条）。
+# 第 3 层 agent 内的 dedup_check：向量库不可用时回退 tasks.yaml 轻量召回，
+#         候选照常送 LLM 裁判；判 must_change 会硬拦截造数据与对拍 ——
+#         重复题物理上产不出来。
 #
-# ─── 已知限制 ─────────────────────────────────────────────────────
-# · workbuddy provider 不可用：靠本地文件队列阻塞等会话应答，runner 上没人回，
-#   会卡到 timeout_sec 才失败。CI 请只用 openai/anthropic 系列。
-# · 不与公开题库查重：problem_data/ 里的 problems.db 有 185.8MB，
-#   超过 GitHub 单文件 100MB 硬限，无法入库；Git LFS 带宽 1GB/月也不够每次拉取。
-#   出题量不大 + 面向初学者，撞公开题库概率低，暂不处理。
-# · 不自动上传 OJ：项目硬约束要求「出完停一步等人确认」（见 AGENT.md），
-#   产物一律走 artifact，上传由人本地执行 upload.py。
+# ─── 一次性前提（仓库 Settings 里做）─────────────────────────────
+# 1. Secrets 放 LLM key：DEEPSEEK_API_KEY / OPENAI_API_KEY /
+#    ANTHROPIC_API_KEY / MIMO_API_KEY（用哪个配哪个）
+# 2. 本文件必须在**默认分支(main)**上，Actions 页面才有 "Run workflow" 按钮
+# 3. 若 main 有分支保护规则，需允许 GitHub Actions 推送（否则回写会失败）
 #
-# ─── 版本升级记录 ─────────────────────────────────────────────────
-# 2026-09-26：actions 升到 v7（checkout v7.0.1 / setup-python v7.0.0 /
-#   upload-artifact v7.0.1），消除 Node.js 20 deprecation 警告。
-#   回退点：远端分支 backup/ci-before-v7（= 旧版 v4/v5 + 无防自撞）。
+# ─── 已知限制 ────────────────────────────────────────────────────
+# · workbuddy provider 不可用：靠本地文件队列阻塞等会话应答，runner 上没人回
+# · 不与公开题库查重：problem_data/ 的 problems.db 185.8MB，
+#   超过 GitHub 单文件 100MB 硬限，无法入库（Git LFS 带宽 1GB/月也不够）
+# · 不自动上传 OJ：项目硬约束要求「出完停一步等人确认」（见 AGENT.md）
+# · Ubuntu 26 将于 2026-10-19 迁移，g++ 版本会变，由 Verify toolchain 步骤兜住
 
 on:
   workflow_dispatch:
     inputs:
+      task_id:
+        description: "指定 tasks.yaml 里的题目 id；留空 = 自动取第一个 pending"
+        required: false
+        default: ""
       topic:
-        description: "算法主题 (dp / graph / tree / greedy / ...)"
-        required: true
-        default: "dp"
+        description: "覆盖算法主题（留空 = 用 tasks.yaml 该题的值）"
+        required: false
+        default: ""
       difficulty:
-        description: "CF rating (800-3000)"
-        required: true
-        default: "1500"
+        description: "覆盖难度（留空 = 用 tasks.yaml 该题的值）"
+        required: false
+        default: ""
       name:
-        description: "题目目录名；留空自动生成 <topic>_<difficulty>_<run_number>"
+        description: "覆盖目录名；留空 = <topic>_<difficulty>_<run_number>"
         required: false
         default: ""
       provider:
@@ -47,7 +52,7 @@ on:
         required: true
         default: "openai.deepseek"
       idea:
-        description: "给定大致题意让系统补全成完整题目；留空则按 topic 自由出题"
+        description: "给定大致题意让系统补全；留空则按 tasklist 的考点自由出题"
         required: false
         default: ""
       extra:
@@ -67,7 +72,7 @@ on:
         required: true
         default: "45"
       export_formats:
-        description: "成功后导出格式：luogu / hydro / polygon / all；留空不导出"
+        description: "导出格式：luogu / hydro / polygon / all；留空不导出"
         required: false
         default: ""
 
@@ -75,6 +80,8 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write          # Mark task done 步骤要 commit tasks.yaml
     env:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -82,7 +89,10 @@ jobs:
       MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
 
     steps:
+      # fetch-depth 0：后面要 push 回写 tasks.yaml，避免 shallow clone 的麻烦
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v7.0.0
         with:
@@ -93,9 +103,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
+      - name: Resolve task
+        id: task
+        env:
+          IN_TASK_ID: ${{ inputs.task_id }}
+        run: |
+          # 没有待出任务时 next 返回 1（合法状态，不是错误），故用 || true 兜住
+          python tasklist.py next --id "$IN_TASK_ID" --format github >> "$GITHUB_OUTPUT" || true
+          cat "$GITHUB_OUTPUT"
+
+      - name: No pending task
+        if: steps.task.outputs.empty != 'false'
+        run: |
+          {
+            echo "## 没有待出任务"
+            echo
+            echo "${{ steps.task.outputs.reason }}"
+            echo
+            echo "要么 100 题都出完了，要么 tasks.yaml 里的 status 都需要人工看。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # 先用 testlib.h 试编译，别让编译器兼容问题藏在出题流程中途才爆。
-      # 2026-10-19 起 ubuntu-latest 迁到 Ubuntu 26（g++ 版本会变），这步会第一时间报警。
+      # 2026-10-19 起 ubuntu-latest 迁到 Ubuntu 26（g++ 版本会变），这步第一时间报警。
       - name: Verify toolchain
+        if: steps.task.outputs.empty == 'false'
         run: |
           g++ --version | head -1
           printf '#include "testlib.h"\nint main() { return 0; }\n' > /tmp/testlib_smoke.cpp
@@ -104,11 +135,17 @@ jobs:
 
       # config.yaml 被 .gitignore；provider 凭证靠 env_key 读环境变量，天然适配 Secrets
       - name: Prepare config
+        if: steps.task.outputs.empty == 'false'
         run: cp config.yaml.example config.yaml
 
       - name: Generate
         id: gen
+        if: steps.task.outputs.empty == 'false'
         env:
+          TASK_ID: ${{ steps.task.outputs.id }}
+          TASK_TOPIC: ${{ steps.task.outputs.topic }}
+          TASK_FOCUS: ${{ steps.task.outputs.focus }}
+          TASK_DIFF: ${{ steps.task.outputs.difficulty }}
           IN_TOPIC: ${{ inputs.topic }}
           IN_DIFFICULTY: ${{ inputs.difficulty }}
           IN_NAME: ${{ inputs.name }}
@@ -120,23 +157,28 @@ jobs:
           IN_MAX_ITERATIONS: ${{ inputs.max_iterations }}
           IN_EXPORT: ${{ inputs.export_formats }}
         run: |
+          # 手动输入优先，留空则用 tasks.yaml 该行的规格
+          TOPIC="$IN_TOPIC"
+          if [ -z "$TOPIC" ]; then TOPIC="$TASK_TOPIC"; fi
+          DIFF="$IN_DIFFICULTY"
+          if [ -z "$DIFF" ]; then DIFF="$TASK_DIFF"; fi
           NAME="$IN_NAME"
-          if [ -z "$NAME" ]; then
-            NAME="${IN_TOPIC}_${IN_DIFFICULTY}_${GITHUB_RUN_NUMBER}"
-          fi
+          if [ -z "$NAME" ]; then NAME="${TOPIC}_${DIFF}_${GITHUB_RUN_NUMBER}"; fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
-          # 防自撞：把已出题清单并进 --extra（known_problems.txt 不存在则跳过）
-          # 走临时文件拼接 —— 直接在 YAML 块标量里写多行字符串会被缩进规则吃掉
+          # 第 2 层围栏：本行考点 + 同 topic 已出题，一并作为 --extra 做预防
           EXTRA="$IN_EXTRA"
-          if [ -s known_problems.txt ]; then
-            printf '%s\n以下是我们已经出过的题目。你必须出一道与之不重复、也不高度相似的题：\n' \
-              "$IN_EXTRA" > /tmp/known_extra.txt
-            grep -v '^#' known_problems.txt >> /tmp/known_extra.txt
-            EXTRA="$(cat /tmp/known_extra.txt)"
+          if [ -n "$TASK_FOCUS" ]; then
+            EXTRA="$(printf '本题指定考点（必须落在该考点上，不要跑偏）：%s\n%s' "$TASK_FOCUS" "$EXTRA")"
+          fi
+          CTX="$(python tasklist.py context "$TOPIC" || true)"
+          if [ -n "$CTX" ]; then
+            printf '%s\n以下是同主题已出过的题目，必须避开重复与高度相似：\n' "$EXTRA" > /tmp/ctx.txt
+            printf '%s\n' "$CTX" >> /tmp/ctx.txt
+            EXTRA="$(cat /tmp/ctx.txt)"
           fi
 
-          ARGS=(--topic "$IN_TOPIC" -d "$IN_DIFFICULTY" --name "$NAME")
+          ARGS=(--topic "$TOPIC" -d "$DIFF" --name "$NAME")
           ARGS+=(--provider "$IN_PROVIDER")
           ARGS+=(--test-count "$IN_TEST_COUNT" --stress "$IN_STRESS")
           ARGS+=(--max-iterations "$IN_MAX_ITERATIONS")
@@ -150,27 +192,48 @@ jobs:
           python main.py "${ARGS[@]}"
 
       - name: Problem summary
-        if: always()
+        if: always() && steps.task.outputs.empty == 'false'
         run: |
           D="problems/${{ steps.gen.outputs.name }}"
+          {
+            echo "## task #${{ steps.task.outputs.id }} · $(basename "$D")"
+            echo
+            echo "- 考点：${{ steps.task.outputs.focus }}"
+            echo "- 主题 / 难度：${{ steps.task.outputs.topic }} / CF ${{ steps.task.outputs.difficulty }}"
+          } >> "$GITHUB_STEP_SUMMARY"
           if [ -f "$D/problem.md" ]; then
             {
-              echo "## $(basename "$D")"
-              echo
               echo "- 测试点: $(ls -1 "$D/inputs" 2>/dev/null | wc -l)"
               echo
               echo '```'
               head -n 120 "$D/problem.md"
               echo '```'
-              echo
-              echo "> 题做完后，记得把题名追加到 \`known_problems.txt\`，否则下次可能撞题。"
             } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "未生成 problem.md —— 出题失败，见 Generate 步骤日志" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # 回写状态：只有出题成功才标记 done，失败留 pending 供下次重试
+      - name: Mark task done
+        if: success() && steps.task.outputs.empty == 'false'
+        env:
+          TASK_ID: ${{ steps.task.outputs.id }}
+          GEN_NAME: ${{ steps.gen.outputs.name }}
+        run: |
+          python tasklist.py mark-done "$TASK_ID" --name "$GEN_NAME"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tasks.yaml
+          if git diff --cached --quiet; then
+            echo "tasks.yaml 无变化，跳过提交"
+          else
+            git commit -m "chore(tasks): #${TASK_ID} 出题完成（${GEN_NAME}）"
+            git push
+            echo "已回写 tasks.yaml 并推送" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Upload artifact
-        if: always()
+        if: always() && steps.task.outputs.empty == 'false'
         uses: actions/upload-artifact@v7.0.1
         with:
           name: problem-${{ github.run_id }}
