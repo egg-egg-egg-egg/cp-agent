@@ -128,7 +128,7 @@ problems:
   - {id: "088", topic: graph,             focus: "拓扑排序-依赖关系",                 difficulty: 1400, status: done, name: "graph_1400_29"}
   - {id: "089", topic: graph,             focus: "最小生成树-Kruskal",                difficulty: 1500, status: done, name: "graph_1500_42"}
   - {id: "090", topic: graph,             focus: "割点与桥-Tarjan 入门",              difficulty: 1700, status: done, name: "graph_1700_54"}
-  - {id: "091", topic: graph,             focus: "二分图匹配-匈牙利入门",             difficulty: 1800, status: pending, name: ""}
+  - {id: "091", topic: graph,             focus: "二分图匹配-匈牙利入门",             difficulty: 1800, status: done, name: "graph_1800_64"}
 
   # ── 最短路 shortest_path（3 题）──────────────────────────────────
   - {id: "092", topic: shortest_path,     focus: "多源最短路-Floyd",                  difficulty: 1400, status: done, name: "shortest_path_1400_18"}
