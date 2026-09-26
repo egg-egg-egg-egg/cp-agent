@@ -107,7 +107,7 @@ problems:
   # ── 数学 math（9 题）─────────────────────────────────────────────
   - {id: "072", topic: math,              focus: "点线关系-简单几何判定",             difficulty: 900,  status: done, name: "math_900_22"}
   - {id: "073", topic: math,              focus: "等差数列-求和公式",                 difficulty: 1000, status: done, name: "math_1000_31"}
-  - {id: "074", topic: math,              focus: "质因数分解-因数统计",               difficulty: 1000, status: pending, name: ""}
+  - {id: "074", topic: math,              focus: "质因数分解-因数统计",               difficulty: 1000, status: done, name: "math_1000_44"}
   - {id: "075", topic: math,              focus: "快速幂-模运算",                     difficulty: 1100, status: pending, name: ""}
   - {id: "076", topic: math,              focus: "最大公约数-辗转相除",               difficulty: 1200, status: pending, name: ""}
   - {id: "077", topic: math,              focus: "同余运算-整除性质",                 difficulty: 1200, status: pending, name: ""}
