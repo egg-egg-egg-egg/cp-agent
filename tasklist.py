@@ -64,7 +64,8 @@ def cmd_next(args) -> int:
             return 1
     else:
         for t in tasks:
-            if t.get("status") == "pending":
+            if t.get("status") == "pending" and (
+                    args.topic is None or t.get("topic") == args.topic):
                 target = t
                 break
         if target is None:
@@ -138,6 +139,8 @@ def main() -> int:
 
     n = sub.add_parser("next", help="取下一个待出题任务")
     n.add_argument("--id", default=None, help="指定题目 id；默认取首个 pending")
+    n.add_argument("--topic", default=None,
+                   help="只取该 topic 的下一个 pending（并行调度用）")
     n.add_argument("--force", action="store_true", help="即使已是 done 也返回")
     n.add_argument("--format", choices=["json", "github"], default="json",
                    help="json（默认，本地用）或 github（GITHUB_OUTPUT 的 key=value）")

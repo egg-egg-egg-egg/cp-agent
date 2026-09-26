@@ -39,6 +39,10 @@ on:
         description: "覆盖算法主题（留空 = 用 tasks.yaml 该题的值）"
         required: false
         default: ""
+      topic_filter:
+        description: "只取该 topic 的待出题（并行调度用；留空 = 全局顺序取首个 pending）"
+        required: false
+        default: ""
       difficulty:
         description: "覆盖难度（留空 = 用 tasks.yaml 该题的值）"
         required: false
@@ -107,9 +111,10 @@ jobs:
         id: task
         env:
           IN_TASK_ID: ${{ inputs.task_id }}
+          IN_TOPIC_FILTER: ${{ inputs.topic_filter }}
         run: |
           # 没有待出任务时 next 返回 1（合法状态，不是错误），故用 || true 兜住
-          python tasklist.py next --id "$IN_TASK_ID" --format github >> "$GITHUB_OUTPUT" || true
+          python tasklist.py next --id "$IN_TASK_ID" --topic "$IN_TOPIC_FILTER" --format github >> "$GITHUB_OUTPUT" || true
           cat "$GITHUB_OUTPUT"
 
       - name: No pending task
@@ -228,7 +233,15 @@ jobs:
             echo "tasks.yaml 无变化，跳过提交"
           else
             git commit -m "chore(tasks): #${TASK_ID} 出题完成（${GEN_NAME}）"
-            git push
+            # 并行调度下多个 job 会同时 push tasks.yaml —— 失败就 pull --rebase 重试。
+            # 不同 topic 改不同行，rebase 不会冲突。
+            pushed=""
+            for attempt in 1 2 3 4 5; do
+              if git push origin main; then pushed=1; break; fi
+              echo "push 失败（并发冲突？），pull --rebase 后重试（$attempt）"
+              git pull --rebase origin main
+            done
+            if [ -z "$pushed" ]; then echo "::error::push 连续失败"; exit 1; fi
             echo "已回写 tasks.yaml 并推送" >> "$GITHUB_STEP_SUMMARY"
           fi
 
