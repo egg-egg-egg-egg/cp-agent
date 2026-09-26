@@ -133,7 +133,7 @@ problems:
   # ── 最短路 shortest_path（3 题）──────────────────────────────────
   - {id: "092", topic: shortest_path,     focus: "多源最短路-Floyd",                  difficulty: 1400, status: done, name: "shortest_path_1400_18"}
   - {id: "093", topic: shortest_path,     focus: "单源最短路-Dijkstra",               difficulty: 1500, status: done, name: "shortest_path_1500_33"}
-  - {id: "094", topic: shortest_path,     focus: "分层图最短路-状态扩展",             difficulty: 1800, status: pending, name: ""}
+  - {id: "094", topic: shortest_path,     focus: "分层图最短路-状态扩展",             difficulty: 1800, status: done, name: "shortest_path_1800_46"}
 
   # ── 并查集 dsu（3 题）────────────────────────────────────────────
   - {id: "095", topic: dsu,               focus: "并查集-合并与查询",                 difficulty: 1200, status: done, name: "dsu_1200_13"}
