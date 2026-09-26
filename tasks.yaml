@@ -124,7 +124,7 @@ problems:
   - {id: "086", topic: bfs_dfs,           focus: "双向BFS-状态空间搜索",              difficulty: 1600, status: pending, name: ""}
 
   # ── 图论 graph（5 题）────────────────────────────────────────────
-  - {id: "087", topic: graph,             focus: "邻接表-图的遍历",                   difficulty: 1100, status: pending, name: ""}
+  - {id: "087", topic: graph,             focus: "邻接表-图的遍历",                   difficulty: 1100, status: done, name: "graph_1100_14"}
   - {id: "088", topic: graph,             focus: "拓扑排序-依赖关系",                 difficulty: 1400, status: pending, name: ""}
   - {id: "089", topic: graph,             focus: "最小生成树-Kruskal",                difficulty: 1500, status: pending, name: ""}
   - {id: "090", topic: graph,             focus: "割点与桥-Tarjan 入门",              difficulty: 1700, status: pending, name: ""}
