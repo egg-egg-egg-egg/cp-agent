@@ -168,7 +168,7 @@ def test_upload_cli_sanity_check(tmp_path):
     assert any("problem.yaml 位于 testdata 之后" in w for w in warns)
 
 
-def test_upload_cli_dry_run_needs_no_credentials(tmp_path, capsys):
+def test_upload_cli_dry_run_needs_no_credentials(tmp_path, tmp_config, capsys):
     mod = _import_upload()
     problem = tmp_path / "p"
     problem.mkdir()
