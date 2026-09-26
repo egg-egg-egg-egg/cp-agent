@@ -1,5 +1,72 @@
 # CP-Agent 项目文档
 
+## 出题 SOP（agent 必读）
+
+> 用户提出出题需求时，**先读 `skills/cp-agent-chuti/SKILL.md` 并照做**，不要凭记忆自由发挥。
+
+一句话流程：用户需求 → 解析 topic/difficulty/name → 跑出题 → 校验 → **等用户确认** → 上传 OJ。
+
+```bash
+# 出题（封装脚本：自动注入凭证 + 事后校验，见 skills/cp-agent-chuti/）
+.venv/Scripts/python.exe skills/cp-agent-chuti/cpgen.py --topic dp --difficulty 1500 --name my_problem
+
+# 或直接走 main.py
+.venv/Scripts/python.exe main.py --topic dp --difficulty 1500 --name my_problem --export-after hydrooj
+```
+
+硬约束：
+- 出完必须**停一步等用户确认**，不得自动上传。
+- 上传用 `upload.py --kind hydro2`（新一代入口，题面按 Markdown 渲染）。
+- Python 必须用 `.venv\Scripts\python.exe`；凭证走环境变量，不要硬编码进任何文件。
+
+## 关键坑（血泪教训，动代码/跑流水线前必读）
+
+这些坑在 `.workbuddy/memory/MEMORY.md` 有完整记录，这里列最痛的几条，每条都踩过、每条都浪费时间：
+
+1. **改源码后必须删 `problems/<题>/bin` 再跑流水线**：Windows 下 `pipeline._compile()`
+   只在 `bin/<name>` 不存在时才从 `.exe` 拷贝；改过 generator/validator/solution/naive 后
+   无扩展名副本不会更新，跑出来是旧二进制、数据毫无变化（data_strength 报「数据太弱」极难定位）。
+
+2. **用对 Python**：跑 main.py / pipeline 用 `.venv\Scripts\python.exe`；托管 python 零依赖，
+   `import` 直接 ModuleNotFoundError。
+
+3. **查重是静默降级**：`problem_data/` 题库未下载时 `search_problem_db` 不报错但没防撞题；
+   对外发布的题先补装 db 依赖 + 下载题库。
+
+4. **撞 `--max-iterations` 先放宽重试**：默认 30，放宽到 45 重试一次；多为 LLM 陷入重试循环，
+   不是题做不出来。
+
+## 当前开发分支（先确认再动手）
+
+本项目开发在 `feature/hustoj-xml-upload` 分支。开始任何工作前先确认分支：
+
+```bash
+git checkout feature/hustoj-xml-upload
+```
+
+若当前不在该分支、或改动不该提交到这个分支，先和用户确认，不要盲目在 main 上开发。
+
+## CI 出题（GitHub Actions）
+
+`.github/workflows/generate.yml` 提供 `workflow_dispatch` 手动出题：算力搬到 runner，
+产物以 artifact 下载回来。要点：
+
+- **触发前提**：workflow 文件必须在**默认分支 main** 上，Actions 页面才会出现
+  "Run workflow" 按钮。在 feature 分支写完要先合并到 main 才能用。
+- **凭证**：仓库 Settings → Secrets 放 `DEEPSEEK_API_KEY`（或 OPENAI / ANTHROPIC / MIMO 之一）。
+  CI 里执行 `cp config.yaml.example config.yaml`，provider 的 `env_key` 直接读环境变量。
+- **workbuddy provider 不能上 CI**：本地文件队列阻塞等 `.resp`，runner 上没人应答，会卡到超时。
+- **查重在 CI 上等于失效**：`problem_data/` 未入库，题库为空，批量出题会自撞。
+- **`tasks.yaml` 是唯一数据源**：出题前读它取任务（topic / focus / difficulty），成功后
+  回写 status=done + name 并 commit 回 main。三层防自撞都挂在它上面：
+  ① focus 把考点切细，LLM 只看自己那一行；② 同 topic 已出题注入 `--extra` 做预防；
+  ③ agent 内的 `dedup_check` 用 LLM 裁判判定（向量库不可用时自动回退 tasks.yaml 轻量召回，
+  判 must_change 会拦截造数据）。维护用 `python tasklist.py {next|stats|context|mark-done}`。
+- **本地与 CI 都会写 `tasks.yaml`**，小心本地旧版本覆盖 CI 的进度。每次跑完 CI 后执行：
+  `git fetch myfork main && git merge --ff-only myfork/main`，
+  再切回开发分支 `git checkout main -- tasks.yaml` 同步状态。
+- **不自动上传 OJ**：遵守「出完停一步等确认」的硬约束，上传仍由人本地执行 `upload.py`。
+
 ## 项目概述
 全自动算法竞赛出题 AI Agent 框架，从题目概念到完整数据包一键生成。
 
@@ -12,7 +79,10 @@ cp-agent/
 ├── dedup.py             # 原题查重：多路召回 + LLM 裁判
 ├── prompts.py           # SYSTEM_PROMPT / build_user_prompt（纯 prompt 资产）
 ├── pipeline.py          # 工具注册表（@tool 装饰器）+ 12 个沙盒工具 + Pipeline 类
-├── export.py            # 洛谷 / Hydro / Polygon 题目包导出
+├── export.py            # 题目包导出：hydrooj（默认）/ xml（HUSTOJ FPS，实测最可靠）/ luogu / polygon
+├── upload.py            # 上传到 OJ（导出 → 登录 → 探测入口 → postkey → 导入；--enable 才改状态）
+├── oj_check.py          # 只读验收：核对题面/用例/时限/启用状态是否真的落地
+├── integrations/        # 平台对接（hustoj.py：登录 / 提交记录 / 上传 / 启用状态）
 ├── report.py            # result.json 结构化结果 + 产物完整性检查
 ├── logutil.py           # 文件日志（cp_agent.log，DEBUG 级）
 ├── gui.py               # PySide6 桌面客户端
@@ -251,6 +321,6 @@ Agent 模式下，`search_problem_db` 的完整流程（`agent._dedup_check`）�
 3. macOS 没有 bits/stdc++.h，需用标准头文件
 4. ~~洛谷 P9000+ 题目无题面~~ ✅ 已通过 `luogu_enrich_fast.py` 补全（100% 覆盖）
 5. AtCoder 爬虫暂未实现（API 需要认证）
-6. HuggingFace 下载需要代理：`export https_proxy=http://127.0.0.1:7897`
+6. HuggingFace 下载需要代理：`export https_proxy=http://127.0.0.1:7890`
 7. CF Gym 无法爬取 — 页面有 Cloudflare 防护，API 只返回元数据不返回题面
 8. 洛谷 SPOJ 系列（SP 开头）约 1024 题无题面 — 洛谷上本身就没有完整页面

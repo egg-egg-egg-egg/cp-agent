@@ -244,10 +244,13 @@ def dedup_check(problem_dir: Optional[Path], query: str, top_k: int = 8,
         if extra_hits:
             retrieval["top_vector_score"] = max(
                 (r["vector_score"] for r in retrieval["results"]), default=0.0)
+            # 标注真实召回来源：轻量召回伪装成「本地题库」会让调试时误判向量库可用
+            _src = ("tasks.yaml 轻量召回"
+                    if retrieval.get("source") == "tasks.yaml" else "本地题库")
             retrieval["message"] = (
-                f"本地题库检索完成（关键词 + 标题 + 题面描述多路召回）："
+                f"召回完成（{_src}，关键词 + 标题 + 题面描述多路召回）："
                 f"合并 {len(retrieval['results'])} 条，"
-                f"最高向量相似度 {retrieval['top_vector_score']:.2f}"
+                f"最高相似度 {retrieval['top_vector_score']:.2f}"
             )
 
     trigger = config.DEDUP_JUDGE_TRIGGER
