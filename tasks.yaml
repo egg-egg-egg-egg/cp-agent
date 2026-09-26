@@ -45,7 +45,7 @@ problems:
   - {id: "023", topic: simulation,        focus: "规则模拟-优先级调度",               difficulty: 1600, status: pending, name: ""}
 
   # ── 字符串 string（新增 6 题，共 8）───────────────────────────────
-  - {id: "024", topic: string,            focus: "字符统计-频率与最值",               difficulty: 800,  status: pending, name: ""}
+  - {id: "024", topic: string,            focus: "字符统计-频率与最值",               difficulty: 800,  status: done, name: "string_800_20"}
   - {id: "025", topic: string,            focus: "子串查找-朴素匹配",                 difficulty: 900,  status: pending, name: ""}
   - {id: "026", topic: string,            focus: "自定义排序-多关键字比较",           difficulty: 1000, status: pending, name: ""}
   - {id: "027", topic: string,            focus: "双指针-滑动窗口统计",               difficulty: 1400, status: pending, name: ""}
