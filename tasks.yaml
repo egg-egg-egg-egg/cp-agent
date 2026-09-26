@@ -74,7 +74,7 @@ problems:
   - {id: "044", topic: prefix_sum,        focus: "一维前缀和-区间求和",               difficulty: 800,  status: done, name: "prefix_sum_800_17"}
   - {id: "045", topic: prefix_sum,        focus: "差分数组-区间修改单点查",           difficulty: 1000, status: done, name: "prefix_sum_1000_32"}
   - {id: "046", topic: prefix_sum,        focus: "二维前缀和-子矩阵求和",             difficulty: 1100, status: done, name: "prefix_sum_1100_45"}
-  - {id: "047", topic: prefix_sum,        focus: "前缀最值-维护历史最优",             difficulty: 1200, status: pending, name: ""}
+  - {id: "047", topic: prefix_sum,        focus: "前缀最值-维护历史最优",             difficulty: 1200, status: done, name: "prefix_sum_1200_57"}
   - {id: "048", topic: prefix_sum,        focus: "差分+前缀和-多次区间操作",          difficulty: 1200, status: pending, name: ""}
   - {id: "049", topic: prefix_sum,        focus: "前缀计数-同余配对",                 difficulty: 1400, status: pending, name: ""}
   - {id: "050", topic: prefix_sum,        focus: "二维差分-矩阵区间修改",             difficulty: 1400, status: pending, name: ""}
