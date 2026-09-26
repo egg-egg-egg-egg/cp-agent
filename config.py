@@ -93,6 +93,10 @@ _DERIVED = {
     "DEFAULT_SOLUTION_TIMEOUT_SEC": lambda cfg: cfg.get("solution_timeout_sec", 5),
     "DEFAULT_STRESS_NAIVE_TIMEOUT_SEC": lambda cfg: cfg.get("stress_naive_timeout_sec", 15),
     "DEFAULT_STRESS_NAIVE_SOFT_LIMIT_SEC": lambda cfg: cfg.get("stress_naive_soft_limit_sec", 10),
+    # HydroOJ 导出默认参数（export.py 用，对应 config.yaml 的 hydro 段）
+    "HYDRO_FILE_IO": lambda cfg: (cfg.get("hydro") or {}).get("file_io", True),
+    "HYDRO_FILENAME": lambda cfg: (cfg.get("hydro") or {}).get("filename", ""),
+    "HYDRO_SUBTASK_TYPE": lambda cfg: (cfg.get("hydro") or {}).get("subtask_type", "min"),
     "DEDUP_JUDGE_TRIGGER": lambda cfg: cfg.get("dedup_judge_trigger", 0.5),
     "DEDUP_JUDGE_MAX_CANDIDATES": lambda cfg: cfg.get("dedup_judge_max_candidates", 50),
     "DEDUP_JUDGE_MODEL": lambda cfg: cfg.get("dedup_judge_model", ""),
