@@ -116,7 +116,7 @@ problems:
   - {id: "080", topic: math,              focus: "扩展欧几里得-不定方程",             difficulty: 1500, status: pending, name: ""}
 
   # ── 搜索 bfs_dfs（6 题）──────────────────────────────────────────
-  - {id: "081", topic: bfs_dfs,           focus: "DFS-全排列枚举",                    difficulty: 900,  status: pending, name: ""}
+  - {id: "081", topic: bfs_dfs,           focus: "DFS-全排列枚举",                    difficulty: 900,  status: done, name: "bfs_dfs_900_21"}
   - {id: "082", topic: bfs_dfs,           focus: "DFS-连通块计数",                    difficulty: 1000, status: pending, name: ""}
   - {id: "083", topic: bfs_dfs,           focus: "BFS-网格最短步数",                  difficulty: 1200, status: pending, name: ""}
   - {id: "084", topic: bfs_dfs,           focus: "二分图染色-DFS 判定",               difficulty: 1400, status: pending, name: ""}
