@@ -5,12 +5,14 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
         python: ["3.10", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # 2026-09-26：actions 升 v7，消除 Node.js 20 deprecation 警告（与 generate.yml 对齐）
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: "${{ matrix.python }}"
       - run: pip install -e ".[dev]"
