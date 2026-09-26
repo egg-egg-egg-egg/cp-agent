@@ -101,7 +101,7 @@ problems:
   - {id: "067", topic: data_structure,    focus: "链表模拟-插入与删除",               difficulty: 1200, status: done, name: "data_structure_1200_39"}
   - {id: "068", topic: data_structure,    focus: "单调栈-下一个更大元素",             difficulty: 1300, status: done, name: "data_structure_1300_52"}
   - {id: "069", topic: data_structure,    focus: "优先队列-动态中位数",               difficulty: 1400, status: done, name: "data_structure_1400_62"}
-  - {id: "070", topic: data_structure,    focus: "双端队列-BFS 优化",                 difficulty: 1400, status: pending, name: ""}
+  - {id: "070", topic: data_structure,    focus: "双端队列-BFS 优化",                 difficulty: 1400, status: done, name: "data_structure_1400_71"}
   - {id: "071", topic: data_structure,    focus: "堆-合并有序序列",                   difficulty: 1500, status: pending, name: ""}
 
   # ── 数学 math（9 题）─────────────────────────────────────────────
