@@ -98,8 +98,10 @@ hydro:
 # 新题题面交给独立 LLM 裁判判定是否同一题目模型；门禁以裁判结论为准。
 # 裁判不可用时退回阈值判定（向量相似度 ≥0.85 换题 / 0.7-0.85 人工判断）。
 # 注意：检索结果里的 final_score 是 RRF 排名融合分（只用于排序），不是相似度。
-dedup_judge_trigger: 0.5          # 触发 LLM 裁判的最低向量相似度
-dedup_judge_max_candidates: 5     # 每次最多送裁判的候选数
+dedup_judge_trigger: 0.5          # 触发 LLM 裁判的最低相似度
+dedup_judge_max_candidates: 50    # 每次最多送裁判的候选数。轻量召回下候选池就是已出题
+                                  # （≤100 条短 focus），设大到能装下全部，避免截断漏判
+                                  # —— 检索是给大规模场景（公开题库）用的，100 条不需要
 # dedup_judge_model: "openai.deepseek"   # 可选：裁判用独立（更便宜的）provider，留空则用主 provider
 index_generated: true             # 生成成功的题目自动入库，供后续查重召回（防批量自撞）
 
