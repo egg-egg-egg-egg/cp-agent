@@ -160,6 +160,13 @@ def test_judge_model_override_and_usage_sink(tmp_problem_dir, tmp_config, monkey
 
 
 def test_max_candidates_cap(tmp_problem_dir, tmp_config, monkeypatch):
+    # 显式设置上限，不依赖 config 默认值 —— 默认值是产品决策（会随防重场景调整），
+    # 本用例要验证的是「cap 逻辑生效」，而不是「默认值恰好等于 5」
+    tmp_config.write_text(tmp_config.read_text() + '\ndedup_judge_max_candidates: 5\n',
+                          encoding="utf-8")
+    import config
+    config.load_config.cache_clear()
+
     (tmp_problem_dir / "problem.md").write_text(STATEMENT, encoding="utf-8")
     monkeypatch.setattr(dedup_mod, "search_problem_db",
                         lambda q, k=8: _retrieval([0.9, 0.8, 0.75, 0.7, 0.68, 0.65, 0.62]))
