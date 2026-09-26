@@ -83,7 +83,7 @@ problems:
   - {id: "051", topic: dp,                focus: "计数DP-带障碍路径计数",             difficulty: 1200, status: done, name: "dp_1200_12"}
   - {id: "052", topic: dp,                focus: "线性DP-最长上升子序列",             difficulty: 1300, status: done, name: "dp_1300_27"}
   - {id: "053", topic: dp,                focus: "01背包-方案数统计",                 difficulty: 1200, status: done, name: "dp_1200_40"}
-  - {id: "054", topic: dp,                focus: "完全背包-无限次选取",               difficulty: 1200, status: pending, name: ""}
+  - {id: "054", topic: dp,                focus: "完全背包-无限次选取",               difficulty: 1200, status: done, name: "dp_1200_53"}
   - {id: "055", topic: dp,                focus: "分组背包-每组选一件",               difficulty: 1400, status: pending, name: ""}
   - {id: "056", topic: dp,                focus: "序列DP-编辑距离",                   difficulty: 1400, status: pending, name: ""}
   - {id: "057", topic: dp,                focus: "区间DP-合并代价最小",               difficulty: 1500, status: pending, name: ""}
