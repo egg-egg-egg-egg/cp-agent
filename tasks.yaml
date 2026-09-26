@@ -137,7 +137,7 @@ problems:
 
   # ── 并查集 dsu（3 题）────────────────────────────────────────────
   - {id: "095", topic: dsu,               focus: "并查集-合并与查询",                 difficulty: 1200, status: done, name: "dsu_1200_13"}
-  - {id: "096", topic: dsu,               focus: "带权并查集-关系维护",               difficulty: 1600, status: pending, name: ""}
+  - {id: "096", topic: dsu,               focus: "带权并查集-关系维护",               difficulty: 1600, status: done, name: "dsu_1600_28"}
   - {id: "097", topic: dsu,               focus: "并查集+离线-反向加边",              difficulty: 1700, status: pending, name: ""}
 
   # ── 构造 constructive（3 题）─────────────────────────────────────
