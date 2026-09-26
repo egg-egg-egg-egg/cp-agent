@@ -50,7 +50,7 @@ problems:
   - {id: "026", topic: string,            focus: "自定义排序-多关键字比较",           difficulty: 1000, status: done, name: "string_1000_48"}
   - {id: "027", topic: string,            focus: "双指针-滑动窗口统计",               difficulty: 1400, status: done, name: "string_1400_59"}
   - {id: "028", topic: string,            focus: "字符串构造-字典序最小",             difficulty: 1300, status: done, name: "string_1300_69"}
-  - {id: "029", topic: string,            focus: "字符串哈希-判重与比较",             difficulty: 1500, status: pending, name: ""}
+  - {id: "029", topic: string,            focus: "字符串哈希-判重与比较",             difficulty: 1500, status: done, name: "string_1500_77"}
 
   # ── 贪心 greedy（新增 9 题，共 10）────────────────────────────────
   - {id: "030", topic: greedy,            focus: "简单贪心-局部最优选择",             difficulty: 800,  status: done, name: "greedy_800_15"}
