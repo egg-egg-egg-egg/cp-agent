@@ -68,7 +68,7 @@ problems:
   - {id: "040", topic: binary_search,     focus: "二分答案-最小化最大值",             difficulty: 1300, status: done, name: "binary_search_1300_24"}
   - {id: "041", topic: binary_search,     focus: "二分答案-最大化最小值",             difficulty: 1400, status: done, name: "binary_search_1400_37"}
   - {id: "042", topic: binary_search,     focus: "二分+贪心-判定函数构造",            difficulty: 1500, status: done, name: "binary_search_1500_50"}
-  - {id: "043", topic: binary_search,     focus: "二分+前缀和-区间判定",              difficulty: 1500, status: pending, name: ""}
+  - {id: "043", topic: binary_search,     focus: "二分+前缀和-区间判定",              difficulty: 1500, status: done, name: "binary_search_1500_61"}
 
   # ── 前缀和与差分 prefix_sum（新增 7 题，共 8）─────────────────────
   - {id: "044", topic: prefix_sum,        focus: "一维前缀和-区间求和",               difficulty: 800,  status: done, name: "prefix_sum_800_17"}
