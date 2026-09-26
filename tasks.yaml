@@ -96,7 +96,7 @@ problems:
   - {id: "064", topic: dp,                focus: "DP优化-单调队列滑动窗口",           difficulty: 1600, status: pending, name: ""}
 
   # ── 数据结构 data_structure（7 题）───────────────────────────────
-  - {id: "065", topic: data_structure,    focus: "哈希表-计数与去重",                 difficulty: 1100, status: pending, name: ""}
+  - {id: "065", topic: data_structure,    focus: "哈希表-计数与去重",                 difficulty: 1100, status: done, name: "data_structure_1100_11"}
   - {id: "066", topic: data_structure,    focus: "栈-表达式求值",                     difficulty: 1100, status: pending, name: ""}
   - {id: "067", topic: data_structure,    focus: "链表模拟-插入与删除",               difficulty: 1200, status: pending, name: ""}
   - {id: "068", topic: data_structure,    focus: "单调栈-下一个更大元素",             difficulty: 1300, status: pending, name: ""}
