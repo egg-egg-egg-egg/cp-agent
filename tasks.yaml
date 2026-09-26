@@ -64,7 +64,7 @@ problems:
   - {id: "038", topic: greedy,            focus: "交换论证-贪心正确性",               difficulty: 1600, status: pending, name: ""}
 
   # ── 二分 binary_search（新增 5 题，共 6）──────────────────────────
-  - {id: "039", topic: binary_search,     focus: "二分查找-有序定位与边界",           difficulty: 800,  status: pending, name: ""}
+  - {id: "039", topic: binary_search,     focus: "二分查找-有序定位与边界",           difficulty: 800,  status: done, name: "binary_search_800_9"}
   - {id: "040", topic: binary_search,     focus: "二分答案-最小化最大值",             difficulty: 1300, status: pending, name: ""}
   - {id: "041", topic: binary_search,     focus: "二分答案-最大化最小值",             difficulty: 1400, status: pending, name: ""}
   - {id: "042", topic: binary_search,     focus: "二分+贪心-判定函数构造",            difficulty: 1500, status: pending, name: ""}
