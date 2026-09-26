@@ -71,7 +71,7 @@ problems:
   - {id: "043", topic: binary_search,     focus: "二分+前缀和-区间判定",              difficulty: 1500, status: pending, name: ""}
 
   # ── 前缀和与差分 prefix_sum（新增 7 题，共 8）─────────────────────
-  - {id: "044", topic: prefix_sum,        focus: "一维前缀和-区间求和",               difficulty: 800,  status: pending, name: ""}
+  - {id: "044", topic: prefix_sum,        focus: "一维前缀和-区间求和",               difficulty: 800,  status: done, name: "prefix_sum_800_17"}
   - {id: "045", topic: prefix_sum,        focus: "差分数组-区间修改单点查",           difficulty: 1000, status: pending, name: ""}
   - {id: "046", topic: prefix_sum,        focus: "二维前缀和-子矩阵求和",             difficulty: 1100, status: pending, name: ""}
   - {id: "047", topic: prefix_sum,        focus: "前缀最值-维护历史最优",             difficulty: 1200, status: pending, name: ""}
