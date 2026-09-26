@@ -88,7 +88,7 @@ problems:
   - {id: "056", topic: dp,                focus: "序列DP-编辑距离",                   difficulty: 1400, status: done, name: "dp_1400_72"}
   - {id: "057", topic: dp,                focus: "区间DP-合并代价最小",               difficulty: 1500, status: done, name: "dp_1500_80"}
   - {id: "058", topic: dp,                focus: "区间DP-最长回文子序列",             difficulty: 1500, status: done, name: "dp_1500_86"}
-  - {id: "059", topic: dp,                focus: "多重背包-二进制拆分",               difficulty: 1500, status: pending, name: ""}
+  - {id: "059", topic: dp,                focus: "多重背包-二进制拆分",               difficulty: 1500, status: done, name: "dp_1500_91"}
   - {id: "060", topic: dp,                focus: "树形DP-子树统计入门",               difficulty: 1600, status: pending, name: ""}
   - {id: "061", topic: dp,                focus: "状态压缩-棋盘覆盖",                 difficulty: 1600, status: pending, name: ""}
   - {id: "062", topic: dp,                focus: "状压DP-集合选取计数",               difficulty: 1700, status: pending, name: ""}
