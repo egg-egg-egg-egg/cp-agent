@@ -29,7 +29,7 @@ problems:
   - {id: "009", topic: dp,                focus: "DP+前缀最值-约束下最大和",          difficulty: 1500, status: done,    name: "ci_1_dp"}
 
   # ── 模拟 simulation（14 题）──────────────────────────────────────
-  - {id: "010", topic: simulation,        focus: "基础模拟-按规则逐条处理",           difficulty: 800,  status: pending, name: ""}
+  - {id: "010", topic: simulation,        focus: "基础模拟-按规则逐条处理",           difficulty: 800,  status: done, name: "simulation_800_3"}
   - {id: "011", topic: simulation,        focus: "计数模拟-条件筛选统计",             difficulty: 800,  status: pending, name: ""}
   - {id: "012", topic: simulation,        focus: "进制转换-任意进制互转",             difficulty: 900,  status: pending, name: ""}
   - {id: "013", topic: simulation,        focus: "字符串模拟-回文判定与构造",         difficulty: 900,  status: pending, name: ""}
