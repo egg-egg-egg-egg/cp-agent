@@ -107,15 +107,25 @@ def _call_openai_with_tools(messages: list[dict], system: str, model: str,
     # Build messages with system
     api_messages = [{"role": "system", "content": system}] + messages
 
-    resp = retry_llm_call(lambda: client.chat.completions.create(
-        model=model,
-        max_tokens=max_tokens,
-        messages=api_messages,
-        tools=to_openai_tools(tools),
-    ))
-
-    choice = resp.choices[0]
-    msg = choice.message
+    # deepseek-v4-pro 是推理模型，某些轮次 token 全被 reasoning 吃掉，返回空
+    # content 且无 tool_calls —— 这种空响应构造成 assistant message 后，下一轮调用
+    # 会 400（Invalid assistant message: content or tool_calls must be set）。
+    # 这里显式重试 3 次；仍空则抛异常让这一题失败（下轮重跑），绝不产生垃圾题。
+    import time as _time
+    for _empty_attempt in range(1, 4):
+        resp = retry_llm_call(lambda: client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=api_messages,
+            tools=to_openai_tools(tools),
+        ))
+        msg = resp.choices[0].message
+        if msg.content or msg.tool_calls:
+            break
+        print(f"  ⚠️ LLM 返回空响应（推理 token 耗尽），重试 {_empty_attempt}/3")
+        _time.sleep(2)
+    else:
+        raise RuntimeError("LLM 连续 3 次返回空响应（content 与 tool_calls 皆空）")
 
     # Convert to unified format
     content = []
