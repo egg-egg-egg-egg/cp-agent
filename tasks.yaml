@@ -120,7 +120,7 @@ problems:
   - {id: "082", topic: bfs_dfs,           focus: "DFS-连通块计数",                    difficulty: 1000, status: done, name: "bfs_dfs_1000_23"}
   - {id: "083", topic: bfs_dfs,           focus: "BFS-网格最短步数",                  difficulty: 1200, status: done, name: "bfs_dfs_1200_36"}
   - {id: "084", topic: bfs_dfs,           focus: "二分图染色-DFS 判定",               difficulty: 1400, status: done, name: "bfs_dfs_1400_49"}
-  - {id: "085", topic: bfs_dfs,           focus: "剪枝DFS-回溯搜索",                  difficulty: 1500, status: pending, name: ""}
+  - {id: "085", topic: bfs_dfs,           focus: "剪枝DFS-回溯搜索",                  difficulty: 1500, status: done, name: "bfs_dfs_1500_60"}
   - {id: "086", topic: bfs_dfs,           focus: "双向BFS-状态空间搜索",              difficulty: 1600, status: pending, name: ""}
 
   # ── 图论 graph（5 题）────────────────────────────────────────────
