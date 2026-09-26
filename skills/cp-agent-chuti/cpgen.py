@@ -18,6 +18,7 @@ import winreg
 import zipfile
 from pathlib import Path
 
+
 def _find_repo() -> Path:
     """向上查找含 main.py 与 config.yaml 的项目根。
 

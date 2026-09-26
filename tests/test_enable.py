@@ -7,7 +7,6 @@
     状态纹丝不动 —— 所以必须"先读、再切、后复核"。
 """
 import importlib.util
-import re
 from pathlib import Path
 
 from integrations import hustoj
