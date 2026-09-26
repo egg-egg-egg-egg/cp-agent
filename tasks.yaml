@@ -105,7 +105,7 @@ problems:
   - {id: "071", topic: data_structure,    focus: "堆-合并有序序列",                   difficulty: 1500, status: pending, name: ""}
 
   # ── 数学 math（9 题）─────────────────────────────────────────────
-  - {id: "072", topic: math,              focus: "点线关系-简单几何判定",             difficulty: 900,  status: pending, name: ""}
+  - {id: "072", topic: math,              focus: "点线关系-简单几何判定",             difficulty: 900,  status: done, name: "math_900_22"}
   - {id: "073", topic: math,              focus: "等差数列-求和公式",                 difficulty: 1000, status: pending, name: ""}
   - {id: "074", topic: math,              focus: "质因数分解-因数统计",               difficulty: 1000, status: pending, name: ""}
   - {id: "075", topic: math,              focus: "快速幂-模运算",                     difficulty: 1100, status: pending, name: ""}
