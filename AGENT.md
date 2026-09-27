@@ -38,13 +38,15 @@
 
 ## 当前开发分支（先确认再动手）
 
-本项目开发在 `feature/hustoj-xml-upload` 分支。开始任何工作前先确认分支：
+本项目**开发、出题、上传全部在 `main` 一个分支**（2026-09-28 起不再跟踪上游）。
+开始任何工作前先确认分支：
 
 ```bash
-git checkout feature/hustoj-xml-upload
+git checkout main
 ```
 
-若当前不在该分支、或改动不该提交到这个分支，先和用户确认，不要盲目在 main 上开发。
+`feature/hustoj-xml-upload`、`feature/workbuddy-llm-driver` 等历史分支已合并/废弃，
+不要再在上面开发（新 session 有时会自动落在这些旧分支，务必先切回 main）。
 
 ## CI 出题（GitHub Actions）
 
@@ -52,7 +54,7 @@ git checkout feature/hustoj-xml-upload
 产物以 artifact 下载回来。要点：
 
 - **触发前提**：workflow 文件必须在**默认分支 main** 上，Actions 页面才会出现
-  "Run workflow" 按钮。在 feature 分支写完要先合并到 main 才能用。
+  "Run workflow" 按钮。
 - **凭证**：仓库 Settings → Secrets 放 `DEEPSEEK_API_KEY`（或 OPENAI / ANTHROPIC / MIMO 之一）。
   CI 里执行 `cp config.yaml.example config.yaml`，provider 的 `env_key` 直接读环境变量。
 - **workbuddy provider 不能上 CI**：本地文件队列阻塞等 `.resp`，runner 上没人应答，会卡到超时。
@@ -63,9 +65,9 @@ git checkout feature/hustoj-xml-upload
   ③ agent 内的 `dedup_check` 用 LLM 裁判判定（向量库不可用时自动回退 tasks.yaml 轻量召回，
   判 must_change 会拦截造数据）。维护用 `python tasklist.py {next|stats|context|mark-done}`。
 - **本地与 CI 都会写 `tasks.yaml`**，小心本地旧版本覆盖 CI 的进度。每次跑完 CI 后执行：
-  `git fetch myfork main && git merge --ff-only myfork/main`，
-  再切回开发分支 `git checkout main -- tasks.yaml` 同步状态。
-- **不自动上传 OJ**：遵守「出完停一步等确认」的硬约束，上传仍由人本地执行 `upload.py`。
+  `git fetch myfork main && git merge --ff-only myfork/main` 同步状态。
+- **不自动上传 OJ**：遵守「出完停一步等确认」的硬约束，上传由人本地执行
+  `python batch_upload.py`（断点续传，`uploaded_pids.txt` 记录题目→平台 pid 映射）。
 
 ## 项目概述
 全自动算法竞赛出题 AI Agent 框架，从题目概念到完整数据包一键生成。
