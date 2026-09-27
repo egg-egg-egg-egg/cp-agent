@@ -105,6 +105,12 @@ def login(session: Session, user_id: str, password: str,
     if any(m in resp.text for m in LOGIN_FAIL_MARKERS):
         logger.error("登录失败：账号或密码错误")
         return False
+    # 服务器磁盘满会让 PHP 写不进 session，登录态失效，报错却像「账号无权限」。
+    # 单独识别（登录 POST 的返回体里会直接带 PHP 的 Warning），省去误判排查。
+    if "No space left on device" in resp.text or "Failed to write session data" in resp.text:
+        logger.error("OJ 服务器磁盘满（No space left on device），session 写不进去；"
+                     "请管理员清理服务器磁盘后重试，而不是查账号权限")
+        return False
     if not verify:
         logger.info("登录请求已通过：%s @ %s（未校验权限）", user_id, root)
         return True
