@@ -110,22 +110,25 @@ def _call_openai_with_tools(messages: list[dict], system: str, model: str,
     # deepseek-v4-pro 是推理模型，某些轮次 token 全被 reasoning 吃掉，返回空
     # content 且无 tool_calls —— 这种空响应构造成 assistant message 后，下一轮调用
     # 会 400（Invalid assistant message: content or tool_calls must be set）。
-    # 这里显式重试 3 次；仍空则抛异常让这一题失败（下轮重跑），绝不产生垃圾题。
+    # 空响应的根因往往是 max_tokens 不够（难题 reasoning 更长），所以重试时逐步
+    # 加大 max_tokens；3 次仍空则抛异常让这一题失败（下轮重跑），绝不产生垃圾题。
     import time as _time
+    _mt = max_tokens
     for _empty_attempt in range(1, 4):
-        resp = retry_llm_call(lambda: client.chat.completions.create(
+        resp = retry_llm_call(lambda mt=_mt: client.chat.completions.create(
             model=model,
-            max_tokens=max_tokens,
+            max_tokens=mt,
             messages=api_messages,
             tools=to_openai_tools(tools),
         ))
         msg = resp.choices[0].message
         if msg.content or msg.tool_calls:
             break
-        print(f"  ⚠️ LLM 返回空响应（推理 token 耗尽），重试 {_empty_attempt}/3")
+        _mt = min(int(_mt * 1.5), 65536)
+        print(f"  ⚠️ LLM 返回空响应（推理 token 耗尽），加大 max_tokens 到 {_mt} 重试 {_empty_attempt}/3")
         _time.sleep(2)
     else:
-        raise RuntimeError("LLM 连续 3 次返回空响应（content 与 tool_calls 皆空）")
+        raise RuntimeError("LLM 连续 3 次返回空响应（content 与 tool_calls 皆空，max_tokens 已加到上限）")
 
     # Convert to unified format
     content = []

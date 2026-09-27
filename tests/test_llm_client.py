@@ -72,3 +72,24 @@ def test_tool_calls_present_no_retry(monkeypatch, _patch_openai):
     assert r["stop_reason"] == "tool_calls"
     assert r["content"][0]["type"] == "tool_use"
     assert r["content"][0]["name"] == "tool_x"
+
+
+def test_empty_retry_increases_max_tokens(monkeypatch):
+    """空响应重试时 max_tokens 逐步加大，直到拿到正常响应。"""
+    import openai
+    calls = []
+
+    class FakeCompletions:
+        def create(self, **kw):
+            calls.append(kw.get('max_tokens'))
+            if kw.get('max_tokens', 0) < 32000:
+                return FakeResp(FakeMsg(None, None))
+            return FakeResp(FakeMsg("ok", None))
+
+    class FakeClient:
+        chat = types.SimpleNamespace(completions=FakeCompletions())
+
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: FakeClient())
+    r = llm_client._call_openai_with_tools([], "sys", "m", "url", "key", 16000, [])
+    assert r["content"] == [{"type": "text", "text": "ok"}]
+    assert calls == [16000, 24000, 36000]
