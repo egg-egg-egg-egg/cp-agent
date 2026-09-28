@@ -19,9 +19,13 @@
 ## 环境配置
 
 ```bash
-# 创建 conda 环境
-conda create -n cp-agent python=3.11 -y
-conda activate cp-agent
+# 创建虚拟环境（项目约定用 .venv；需要 Python >= 3.10）
+python -m venv .venv
+
+# 激活
+source .venv/Scripts/activate      # Windows (Git Bash)
+# .venv\Scripts\activate.bat       # Windows (cmd)
+# source .venv/bin/activate        # Linux / macOS
 
 # 安装依赖（db extra 为查重系统，dev extra 为测试/lint）
 pip install -e ".[db,dev]"
@@ -35,6 +39,9 @@ cp config.yaml.example config.yaml
 # 编辑 config.yaml：api_key 字段填 key 本身，或 env_key 字段填环境变量名（如 DEEPSEEK_API_KEY）
 # 注意：env_key 只接受环境变量名，填明文 key 会报错
 ```
+
+> 下文示例统一用 `python`，请先激活上面的虚拟环境（不想激活就直接写 `.venv/Scripts/python.exe`）。
+> 开发/协作约定见 [`AGENTS.md`](AGENTS.md)；架构、查重系统等详细参考见 [`docs/reference.md`](docs/reference.md)。
 
 ## 快速开始
 
