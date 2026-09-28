@@ -14,7 +14,8 @@ import requests
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from integrations import hustoj  # noqa: E402
 
-MAX_CASE_BYTES = 300 * 1024  # 300KB（黄sir 定的提交阈值，更大的暂不提交）
+MAX_CASE_BYTES = 800 * 1024  # 800KB（黄sir 定的提交阈值，更大的暂不提交）
+SUBMIT_LOG = pathlib.Path('submitted_pids.txt')  # 已提交过标程的题（避免重复提交）
 
 
 def get_oj_creds():
@@ -41,6 +42,18 @@ def load_pids():
             n, pid = ln.split('=', 1)
             up[n.strip()] = pid.strip()
     return up
+
+
+def load_submitted():
+    """已提交过标程的题目名集合（避免重复提交）。"""
+    if not SUBMIT_LOG.exists():
+        return set()
+    return {ln.strip() for ln in SUBMIT_LOG.read_text(encoding='utf-8').splitlines()
+            if ln.strip()}
+
+
+def save_submitted(done):
+    SUBMIT_LOG.write_text('\n'.join(sorted(done)) + '\n', encoding='utf-8')
 
 
 def fio_base(problem_dir):
@@ -80,9 +93,13 @@ def main():
             return 1
         print('登录成功', flush=True)
 
-    ok = skip_big = skip_nosol = fail = 0
+    submitted = load_submitted()
+    ok = skip_big = skip_nosol = fail = skip_done = 0
     big_list = []
     for name, pid in sorted(up.items()):
+        if name in submitted:
+            skip_done += 1
+            continue
         d = pathlib.Path('problems') / name
         if not d.exists():
             continue
@@ -122,6 +139,8 @@ def main():
             ok_flag = resp.status_code == 200 and 'Please Login' not in resp.text
             if ok_flag:
                 ok += 1
+                submitted.add(name)
+                save_submitted(submitted)
                 print('  [%3d] ✓ %-26s pid=%s' % (ok, name, pid), flush=True)
             else:
                 fail += 1
@@ -132,9 +151,9 @@ def main():
         time.sleep(4)  # 放慢提交节奏，避免判题队列堆积卡 OJ
 
     print('\n=== 汇总 ===', flush=True)
-    print('提交成功 %d / 跳过(超1MB) %d / 跳过(无标程) %d / 失败 %d' % (
-        ok, skip_big, skip_nosol, fail), flush=True)
-    print('\n超 1MB 未提交的题（%d）:' % len(big_list), flush=True)
+    print('提交成功 %d / 跳过(已提交) %d / 跳过(超阈值) %d / 跳过(无标程) %d / 失败 %d' % (
+        ok, skip_done, skip_big, skip_nosol, fail), flush=True)
+    print('\n超阈值未提交的题（%d）:' % len(big_list), flush=True)
     for name, pid, sz in sorted(big_list, key=lambda x: -x[2]):
         print('  %-28s pid=%s  %.2fMB' % (name, pid, sz), flush=True)
     return 0
