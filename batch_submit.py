@@ -5,6 +5,8 @@
 """
 import sys
 import time
+import re
+import zipfile
 import pathlib
 import winreg
 import requests
@@ -12,7 +14,7 @@ import requests
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from integrations import hustoj  # noqa: E402
 
-MAX_CASE_BYTES = 1024 * 1024  # 1MB
+MAX_CASE_BYTES = 300 * 1024  # 300KB（黄sir 定的提交阈值，更大的暂不提交）
 
 
 def get_oj_creds():
@@ -39,6 +41,27 @@ def load_pids():
             n, pid = ln.split('=', 1)
             up[n.strip()] = pid.strip()
     return up
+
+
+def fio_base(problem_dir):
+    """file_io 文件名（不含扩展名）。优先读 hydro 包 input.name，回退按 export 规则生成。"""
+    d = problem_dir / 'export' / 'hydrooj'
+    zips = sorted(d.glob('*.zip')) if d.exists() else []
+    for z in reversed(zips):
+        try:
+            with zipfile.ZipFile(z) as zf:
+                for n in zf.namelist():
+                    if n.endswith('input.name'):
+                        raw = zf.read(n).decode('utf-8', errors='replace').strip()
+                        if raw.endswith('.in'):
+                            return raw[:-3]
+        except Exception:
+            continue
+    # 回退：按 export._ascii_name + 末尾数字加下划线 的规则
+    nm = re.sub(r'[^0-9A-Za-z_]+', '_', problem_dir.name).strip('_').lower() or 'problem'
+    if nm[-1].isdigit():
+        nm += '_'
+    return nm
 
 
 def main():
@@ -81,9 +104,10 @@ def main():
             ok += 1
             continue
         source = sol.read_text(encoding='utf-8')
-        # 题目是 file_io 模式：标程需 freopen 读 <slug>_.in / 写 <slug>_.out
-        # （hydro 包 testdata/input.name = "<slug>_.in"），否则 RE
-        fopen = 'freopen("%s_.in", "r", stdin);\n    freopen("%s_.out", "w", stdout);' % (name, name)
+        # 题目是 file_io 模式：标程需 freopen 读 <fio>.in / 写 <fio>.out
+        # （fio 文件名从 hydro 包 input.name 读，因「末尾数字才加下划线」导致不统一）
+        base = fio_base(d)
+        fopen = 'freopen("%s.in", "r", stdin);\n    freopen("%s.out", "w", stdout);' % (base, base)
         source = source.replace('int main() {', 'int main() {\n    ' + fopen, 1)
         token = hustoj.init_csrf_token(session, host)
         if not token:
