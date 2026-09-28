@@ -517,12 +517,20 @@ def tool_run_solution(problem_dir: Path, timeout_sec: Optional[int] = None) -> d
     errors = []
     timeout_files = []
     mem_mb = _child_mem_mb(problem_dir)
+    # 测试点大小约束（黄sir 2026-09-28 定）：标程在单个测试点上的耗时必须远小于
+    # OJ 时限，否则测试点过大 → 判题机负载高、甚至 TLE。以题目时限为基准两级判定。
+    meta = _load_problem_yaml(problem_dir) or {}
+    limit_sec = (meta.get("time_limit_ms") or 1000) / 1000.0
+    slow_files = []      # 耗时 > 60% 时限：警告（偏大）
+    overtime_files = []  # 耗时 > 100% 时限：判为测试点过大，失败
     for f in inputs:
         inp = f.read_text()
+        _t0 = time.time()
         code, stdout, stderr = _run_cmd(
             [str(sol_bin)], cwd=str(problem_dir.resolve()),
             stdin_data=inp, timeout=timeout_sec, mem_mb=mem_mb
         )
+        _elapsed = time.time() - _t0
         if code == -1:  # TIMEOUT
             timeout_files.append(f.name)
             errors.append(f"{f.name}: 超时（>{timeout_sec}s）— 标程复杂度可能有误")
@@ -534,6 +542,10 @@ def tool_run_solution(problem_dir: Path, timeout_sec: Optional[int] = None) -> d
             if len(errors) >= 3:
                 break
             continue
+        if _elapsed > limit_sec:
+            overtime_files.append((f.name, _elapsed))
+        elif _elapsed > limit_sec * 0.6:
+            slow_files.append((f.name, _elapsed))
         out_file = outputs_dir / f.with_suffix(".out").name
         out_file.write_text(stdout)
         created.append(out_file.name)
@@ -548,12 +560,35 @@ def tool_run_solution(problem_dir: Path, timeout_sec: Optional[int] = None) -> d
             "timeout_files": timeout_files,
         }
 
+    if overtime_files:
+        names = ", ".join(f"{n}({s:.2f}s)" for n, s in overtime_files[:5])
+        return {
+            "success": False,
+            "message": f"标程耗时超过时限 {limit_sec:.2f}s 的测试点有 {len(overtime_files)} 个：{names}。"
+                       f"测试点过大，判题机会 TLE —— 请减小数据规模（降低 n/m 上限）后重新生成",
+            "files_created": created,
+            "errors": [f"{n}: 标程耗时 {s:.2f}s > 时限 {limit_sec:.2f}s" for n, s in overtime_files],
+            "overtime": True,
+            "overtime_files": [n for n, _ in overtime_files],
+        }
+
     if errors:
         return {
             "success": False,
             "message": f"生成了 {len(created)} 个输出，失败 {len(errors)} 个",
             "files_created": created,
             "errors": errors,
+        }
+
+    if slow_files:
+        names = ", ".join(f"{n}({s:.2f}s)" for n, s in slow_files[:5])
+        return {
+            "success": True,
+            "message": f"已为 {len(created)} 个输入生成输出。⚠ 有 {len(slow_files)} 个测试点标程耗时超过时限 60%"
+                       f"（{names}），测试点偏大、判题机会很吃力 —— 建议减小数据规模",
+            "files_created": created,
+            "slow": True,
+            "slow_files": [n for n, _ in slow_files],
         }
 
     return {
