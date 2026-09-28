@@ -89,7 +89,7 @@ memory_limit_mb: 256      # 默认内存限制（MB）
 # `python export.py problems/<name> --format hydrooj` 的默认参数，
 # 也可用 CLI 覆盖：--file-io / --no-file-io / --filename / --hydro-dir
 hydro:
-  file_io: false          # false = 标准输入输出（题面与标程均为 stdin/stdout，file_io=true 会导致标程 RE）
+  file_io: true           # true = 读写文件（生成 file_io/input.name/output.name）；false = 标准输入输出
   filename: ""            # file_io 文件名与测试点前缀（如 lantern → lantern.in、lantern1.in）；留空用 slug
   subtask_type: "min"     # 子任务判分类型（min = 该子任务内所有测试点取最低分）
 
