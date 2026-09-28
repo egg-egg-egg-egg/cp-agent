@@ -149,6 +149,3 @@ problems:
   - {id: "098", topic: constructive,      focus: "简单构造-满足条件的排列",           difficulty: 1000, status: done, name: "constructive_1000_10"}
   - {id: "099", topic: constructive,      focus: "构造+贪心-字典序最优",              difficulty: 1400, status: done, name: "constructive_1400_25"}
   - {id: "100", topic: constructive,      focus: "构造判定-可行性分析",               difficulty: 1700, status: done, name: "constructive_1700_51"}
-
-  # ── 冒烟测试（临时，验证 CI 流程后删除）───────────────────────────
-  - {id: "901", topic: math,              focus: "冒烟-进制转换的简单应用",            difficulty: 800, status: done, name: "math_800_174"}
