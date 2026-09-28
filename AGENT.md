@@ -36,10 +36,16 @@
 4. **撞 `--max-iterations` 先放宽重试**：默认 30，放宽到 45 重试一次；多为 LLM 陷入重试循环，
    不是题做不出来。
 
-## 当前开发分支（先确认再动手）
+## 当前开发分支与仓库状态（先确认再动手）
 
-本项目**开发、出题、上传全部在 `main` 一个分支**（2026-09-28 起不再跟踪上游）。
-开始任何工作前先确认分支：
+- **仓库已脱离 fork，成为独立仓库**：2026-09-28 在 GitHub 执行 *Leave fork network*，
+  与源仓库 `tianqick/cp-agent` 断绝 fork 关系，现为 `egg-egg-egg-egg/cp-agent` 独立库
+  （无 "forked from" 标签，提交历史全保留）。
+- **Remote 约定（脱 fork 后）**：`origin` = `egg-egg-egg-egg/cp-agent`（独立库本身）；
+  **不再有 upstream remote**（源仓库 `tianqick/cp-agent` 的 remote 已删除，勿再 `git fetch myfork`）。
+  历史背景：上游 `main` 仅有 1 个种子提交 `515a54f`，本项目 27 个提交全是在其上长出的
+  原创工作，与上游无共享代码。
+- **唯一主分支 = `main`**：开发、出题、上传全在这里。开始任何工作前先确认分支：
 
 ```bash
 git checkout main
@@ -65,7 +71,7 @@ git checkout main
   ③ agent 内的 `dedup_check` 用 LLM 裁判判定（向量库不可用时自动回退 tasks.yaml 轻量召回，
   判 must_change 会拦截造数据）。维护用 `python tasklist.py {next|stats|context|mark-done}`。
 - **本地与 CI 都会写 `tasks.yaml`**，小心本地旧版本覆盖 CI 的进度。每次跑完 CI 后执行：
-  `git fetch myfork main && git merge --ff-only myfork/main` 同步状态。
+  `git fetch origin main && git merge --ff-only origin/main` 同步状态（脱 fork 后远程即 `origin`）。
 - **不自动上传 OJ**：遵守「出完停一步等确认」的硬约束，上传由人本地执行
   `python batch_upload.py`（断点续传，`uploaded_pids.txt` 记录题目→平台 pid 映射）。
 

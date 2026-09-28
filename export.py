@@ -663,7 +663,7 @@ def export_xml(problem_dir: Path, meta: dict, out_root: Path,
 
     lines = ['<?xml version="1.0" encoding="UTF-8"?>', _FPS_DOCTYPE, "",
              '<fps version="1.5" url="https://github.com/zhblue/freeproblemset/">',
-             '  <generator name="cp-agent" url="https://github.com/tianqick/cp-agent" />',
+             '  <generator name="cp-agent" url="https://github.com/egg-egg-egg-egg/cp-agent" />',
              '  <item>',
              f'    <title>{_cdata(title)}</title>',
              f'    <time_limit unit="s">{_cdata(_fmt_seconds(time_ms))}</time_limit>',

@@ -1,6 +1,6 @@
 # CP-Agent × WorkBuddy 接入指南
 
-把 [cp-agent](https://github.com/tianqick/cp-agent)（算法竞赛全自动出题框架）接入 WorkBuddy 的出题流程。
+把 [cp-agent](https://github.com/egg-egg-egg-egg/cp-agent)（算法竞赛全自动出题框架）接入 WorkBuddy 的出题流程。
 **最终方案：Windows 本机 venv 部署 + WorkBuddy 技能（skill CLI 方式）。**
 
 ---
@@ -165,7 +165,7 @@ rem 上传（先 --dry-run 看计划，不联网）
 在本机（或换机）重建：
 
 ```bat
-git clone https://github.com/tianqick/cp-agent.git D:\Workspace\workbuddy\cp-agent
+git clone https://github.com/egg-egg-egg-egg/cp-agent.git D:\Workspace\workbuddy\cp-agent
 cd /d D:\Workspace\workbuddy\cp-agent
 <managed-py> -m venv .venv
 .venv\Scripts\python.exe -m pip install -e .
