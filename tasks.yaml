@@ -151,4 +151,4 @@ problems:
   - {id: "100", topic: constructive,      focus: "构造判定-可行性分析",               difficulty: 1700, status: done, name: "constructive_1700_51"}
 
   # ── 冒烟测试（临时，验证 CI 流程后删除）───────────────────────────
-  - {id: "901", topic: math,              focus: "冒烟-进制转换的简单应用",            difficulty: 800, status: pending, name: ""}
+  - {id: "901", topic: math,              focus: "冒烟-进制转换的简单应用",            difficulty: 800, status: done, name: "math_800_174"}
