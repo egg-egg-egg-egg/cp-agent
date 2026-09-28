@@ -124,7 +124,7 @@ def _call_openai_with_tools(messages: list[dict], system: str, model: str,
         msg = resp.choices[0].message
         if msg.content or msg.tool_calls:
             break
-        _mt = min(int(_mt * 1.5), 65536)
+        _mt = min(int(_mt * 1.5), 131072)
         print(f"  ⚠️ LLM 返回空响应（推理 token 耗尽），加大 max_tokens 到 {_mt} 重试 {_empty_attempt}/3")
         _time.sleep(2)
     else:
@@ -162,7 +162,7 @@ def _call_openai_with_tools(messages: list[dict], system: str, model: str,
 def call_llm_with_tools(messages: list[dict], system: str, provider: str,
                         tools: list[dict],
                         model: Optional[str] = None, base_url: Optional[str] = None,
-                        api_key: Optional[str] = None, max_tokens: int = 16000) -> dict:
+                        api_key: Optional[str] = None, max_tokens: int = 65536) -> dict:
     """
     Call LLM API with tool support. Routes to Anthropic or OpenAI based on protocol.
     Returns unified format: {stop_reason, content, usage}
@@ -185,7 +185,7 @@ def call_llm_with_tools(messages: list[dict], system: str, provider: str,
 
 def call_llm_text(system: str, user: str, provider: Optional[str] = None,
                    model: Optional[str] = None, base_url: Optional[str] = None,
-                   api_key: Optional[str] = None, max_tokens: int = 2000,
+                   api_key: Optional[str] = None, max_tokens: int = 65536,
                    usage_sink: Optional[dict] = None) -> str:
     """
     Plain text LLM call (no tools) using the same provider routing/retry.

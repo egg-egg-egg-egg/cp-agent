@@ -108,8 +108,8 @@ def _main():
                         help="API key (overrides env var)")
     parser.add_argument("--max-iterations", type=int, default=30,
                         help="Max agent loop iterations (default: 30)")
-    parser.add_argument("--max-tokens", type=int, default=16000,
-                        help="Max tokens per LLM call (default: 16000)")
+    parser.add_argument("--max-tokens", type=int, default=65536,
+                        help="Max tokens per LLM call (default: 65536，推理模型思维链需足够空间)")
 
     # ── Pipeline options ──
     parser.add_argument("--test-count", type=int, default=30,

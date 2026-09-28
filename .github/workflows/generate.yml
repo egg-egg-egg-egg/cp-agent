@@ -75,6 +75,10 @@ on:
         description: "Agent 最大迭代轮数（本地默认 30 偏紧，CI 用 45）"
         required: true
         default: "45"
+      max_tokens:
+        description: "单次 LLM 调用最大 token（推理模型思维链需足够空间，默认不限制）"
+        required: true
+        default: "65536"
       export_formats:
         description: "导出格式：luogu / hydro / polygon / all；留空不导出"
         required: false
@@ -160,6 +164,7 @@ jobs:
           IN_TEST_COUNT: ${{ inputs.test_count }}
           IN_STRESS: ${{ inputs.stress }}
           IN_MAX_ITERATIONS: ${{ inputs.max_iterations }}
+          IN_MAX_TOKENS: ${{ inputs.max_tokens }}
           IN_EXPORT: ${{ inputs.export_formats }}
         run: |
           # 手动输入优先，留空则用 tasks.yaml 该行的规格
@@ -187,6 +192,7 @@ jobs:
           ARGS+=(--provider "$IN_PROVIDER")
           ARGS+=(--test-count "$IN_TEST_COUNT" --stress "$IN_STRESS")
           ARGS+=(--max-iterations "$IN_MAX_ITERATIONS")
+          ARGS+=(--max-tokens "$IN_MAX_TOKENS")
           if [ -n "$EXTRA" ];    then ARGS+=(--extra "$EXTRA"); fi
           if [ -n "$IN_IDEA" ];  then ARGS+=(--idea "$IN_IDEA"); fi
           if [ -n "$IN_EXPORT" ]; then ARGS+=(--export-after "$IN_EXPORT"); fi

@@ -155,7 +155,7 @@ def _web_search(query: str) -> dict:
 
 def call_llm_with_tools(messages: list[dict], system: str, provider: str,
                         model=None, base_url=None, api_key=None,
-                        max_tokens: int = 16000) -> dict:
+                        max_tokens: int = 65536) -> dict:
     """Thin wrapper binding this agent's TOOLS; module-level so tests can patch it."""
     return _llm_call_with_tools(messages, system, provider, TOOLS,
                                 model=model, base_url=base_url,
@@ -178,7 +178,7 @@ def agent_loop(
     model: Optional[str] = None,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
-    max_tokens: int = 16000,
+    max_tokens: int = 65536,
     max_iterations: int = 30,
     tool_defaults: Optional[dict] = None,
     dedup_policy: str = "rewrite",
@@ -426,7 +426,7 @@ def generate_problem(
     model: Optional[str] = None,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
-    max_tokens: int = 16000,
+    max_tokens: int = 65536,
     max_iterations: int = 30,
     test_count: int = 30,
     stress_iterations: Optional[int] = None,
