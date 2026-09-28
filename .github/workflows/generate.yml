@@ -25,7 +25,7 @@ name: Generate Problem
 # · workbuddy provider 不可用：靠本地文件队列阻塞等会话应答，runner 上没人回
 # · 不与公开题库查重：problem_data/ 的 problems.db 185.8MB，
 #   超过 GitHub 单文件 100MB 硬限，无法入库（Git LFS 带宽 1GB/月也不够）
-# · 不自动上传 OJ：项目硬约束要求「出完停一步等人确认」（见 AGENT.md）
+# · 不自动上传 OJ：项目硬约束要求「出完停一步等人确认」（见 AGENTS.md）
 # · Ubuntu 26 将于 2026-10-19 迁移，g++ 版本会变，由 Verify toolchain 步骤兜住
 
 on:

@@ -1,104 +1,43 @@
-# CP-Agent 项目文档
+# CP-Agent 参考资料
 
-## 出题 SOP（agent 必读）
+> 本文件**不被自动注入**，是 `AGENTS.md` 的延伸；只在需要时按需 Read。
+> 最后校对：2026-09-29，逐条对照 `pipeline.py` / `config.py` / `prompts.py` / `agent.py` 核实，
+> 已修掉 4 处过期内容（见每节末尾的「📌 已订正」）。
 
-> 用户提出出题需求时，**先读 `skills/cp-agent-chuti/SKILL.md` 并照做**，不要凭记忆自由发挥。
-
-一句话流程：用户需求 → 解析 topic/difficulty/name → 跑出题 → 校验 → **等用户确认** → 上传 OJ。
-
-```bash
-# 出题（封装脚本：自动注入凭证 + 事后校验，见 skills/cp-agent-chuti/）
-.venv/Scripts/python.exe skills/cp-agent-chuti/cpgen.py --topic dp --difficulty 1500 --name my_problem
-
-# 或直接走 main.py
-.venv/Scripts/python.exe main.py --topic dp --difficulty 1500 --name my_problem --export-after hydrooj
-```
-
-硬约束：
-- 出完必须**停一步等用户确认**，不得自动上传。
-- 上传用 `upload.py --kind hydro2`（新一代入口，题面按 Markdown 渲染）。
-- Python 必须用 `.venv\Scripts\python.exe`；凭证走环境变量，不要硬编码进任何文件。
-
-## 关键坑（血泪教训，动代码/跑流水线前必读）
-
-这些坑在 `.workbuddy/memory/MEMORY.md` 有完整记录，这里列最痛的几条，每条都踩过、每条都浪费时间：
-
-1. **改源码后必须删 `problems/<题>/bin` 再跑流水线**：Windows 下 `pipeline._compile()`
-   只在 `bin/<name>` 不存在时才从 `.exe` 拷贝；改过 generator/validator/solution/naive 后
-   无扩展名副本不会更新，跑出来是旧二进制、数据毫无变化（data_strength 报「数据太弱」极难定位）。
-
-2. **用对 Python**：跑 main.py / pipeline 用 `.venv\Scripts\python.exe`；托管 python 零依赖，
-   `import` 直接 ModuleNotFoundError。
-
-3. **查重是静默降级**：`problem_data/` 题库未下载时 `search_problem_db` 不报错但没防撞题；
-   对外发布的题先补装 db 依赖 + 下载题库。
-
-4. **撞 `--max-iterations` 先放宽重试**：默认 30，放宽到 45 重试一次；多为 LLM 陷入重试循环，
-   不是题做不出来。
-
-## 当前开发分支与仓库状态（先确认再动手）
-
-- **仓库已脱离 fork，成为独立仓库**：2026-09-28 在 GitHub 执行 *Leave fork network*，
-  与源仓库 `tianqick/cp-agent` 断绝 fork 关系，现为 `egg-egg-egg-egg/cp-agent` 独立库
-  （无 "forked from" 标签，提交历史全保留）。
-- **Remote 约定（脱 fork 后）**：`origin` = `egg-egg-egg-egg/cp-agent`（独立库本身）；
-  **不再有 upstream remote**（源仓库 `tianqick/cp-agent` 的 remote 已删除，勿再 `git fetch myfork`）。
-  历史背景：上游 `main` 仅有 1 个种子提交 `515a54f`，本项目 27 个提交全是在其上长出的
-  原创工作，与上游无共享代码。
-- **唯一主分支 = `main`**：开发、出题、上传全在这里。开始任何工作前先确认分支：
-
-```bash
-git checkout main
-```
-
-`feature/hustoj-xml-upload`、`feature/workbuddy-llm-driver` 等历史分支已合并/废弃，
-不要再在上面开发（新 session 有时会自动落在这些旧分支，务必先切回 main）。
-
-## CI 出题（GitHub Actions）
-
-`.github/workflows/generate.yml` 提供 `workflow_dispatch` 手动出题：算力搬到 runner，
-产物以 artifact 下载回来。要点：
-
-- **触发前提**：workflow 文件必须在**默认分支 main** 上，Actions 页面才会出现
-  "Run workflow" 按钮。
-- **凭证**：仓库 Settings → Secrets 放 `DEEPSEEK_API_KEY`（或 OPENAI / ANTHROPIC / MIMO 之一）。
-  CI 里执行 `cp config.yaml.example config.yaml`，provider 的 `env_key` 直接读环境变量。
-- **workbuddy provider 不能上 CI**：本地文件队列阻塞等 `.resp`，runner 上没人应答，会卡到超时。
-- **查重在 CI 上等于失效**：`problem_data/` 未入库，题库为空，批量出题会自撞。
-- **`tasks.yaml` 是唯一数据源**：出题前读它取任务（topic / focus / difficulty），成功后
-  回写 status=done + name 并 commit 回 main。三层防自撞都挂在它上面：
-  ① focus 把考点切细，LLM 只看自己那一行；② 同 topic 已出题注入 `--extra` 做预防；
-  ③ agent 内的 `dedup_check` 用 LLM 裁判判定（向量库不可用时自动回退 tasks.yaml 轻量召回，
-  判 must_change 会拦截造数据）。维护用 `python tasklist.py {next|stats|context|mark-done}`。
-- **本地与 CI 都会写 `tasks.yaml`**，小心本地旧版本覆盖 CI 的进度。每次跑完 CI 后执行：
-  `git fetch origin main && git merge --ff-only origin/main` 同步状态（脱 fork 后远程即 `origin`）。
-- **不自动上传 OJ**：遵守「出完停一步等确认」的硬约束，上传由人本地执行
-  `python batch_upload.py`（断点续传，`uploaded_pids.txt` 记录题目→平台 pid 映射）。
+---
 
 ## 项目概述
+
 全自动算法竞赛出题 AI Agent 框架，从题目概念到完整数据包一键生成。
 
 ## 架构
+
 ```
 cp-agent/
 ├── main.py              # CLI 入口（agent / pipeline / export 三种模式）
-├── agent.py             # Agent 循环 + 质量门禁 + generate_problem 入口
+├── agent.py             # Agent 循环 + 质量门禁 + generate_problem 入口（含 search_problem_db / web_search 两个工具的 schema 与分发）
 ├── llm_client.py        # LLM 协议适配（Anthropic/OpenAI）、重试退避、消息组装适配器
 ├── dedup.py             # 原题查重：多路召回 + LLM 裁判
-├── prompts.py           # SYSTEM_PROMPT / build_user_prompt（纯 prompt 资产）
+├── prompts.py           # SYSTEM_PROMPT / build_user_prompt（纯 prompt 资产，**约定类问题的权威源**）
 ├── pipeline.py          # 工具注册表（@tool 装饰器）+ 12 个沙盒工具 + Pipeline 类
 ├── export.py            # 题目包导出：hydrooj（默认）/ xml（HUSTOJ FPS，实测最可靠）/ luogu / polygon
 ├── upload.py            # 上传到 OJ（导出 → 登录 → 探测入口 → postkey → 导入；--enable 才改状态）
 ├── oj_check.py          # 只读验收：核对题面/用例/时限/启用状态是否真的落地
+├── verify.py            # 可选质量增强：独立验题 + 难度校准（默认关闭）
 ├── integrations/        # 平台对接（hustoj.py：登录 / 提交记录 / 上传 / 启用状态）
 ├── report.py            # result.json 结构化结果 + 产物完整性检查
 ├── logutil.py           # 文件日志（cp_agent.log，DEBUG 级）
 ├── gui.py               # PySide6 桌面客户端
 ├── batch_generate.py    # 批量生成驱动（断点续跑，考点/难度读自 config）
-├── config.py            # YAML 配置加载器（延迟加载 + 校验 + ConfigError）
-├── config.yaml          # 所有配置（供应商、难度、算法主题）
+├── batch_upload.py      # 批量上传（断点续传，写 uploaded_pids.txt，尾部自动同步看板）
+├── config.py            # YAML 配置加载器（延迟加载 + 校验 + ConfigError；默认值的权威源）
+├── config.yaml          # 所有配置（供应商、难度、算法主题）—— 被 gitignore
+├── problem_gate.py      # 看板门禁（**仓库根**，CI 可见）
+├── download_problems.py # 下载 CI 产物 → 门禁 → 落盘 → 同步看板
+├── sync_dashboard.py    # 编排「门禁 + 新增 + PID 回填」，幂等，含 --prune-diff
 ├── tests/               # pytest 单元测试（不调 LLM）
-├── .github/workflows/   # CI（ruff + pytest，py3.10/3.12）
+├── docs/                # 本项目文档（reference.md 等）
+├── .github/workflows/   # CI（ruff + pytest + gate job，py3.10/3.12）
 ├── testlib.h            # Codeforces 官方测试库
 ├── problem_db/          # 原题查重系统
 │   ├── __init__.py      # CLI：crawl / enrich / import / build / search
@@ -107,16 +46,13 @@ cp-agent/
 │   ├── cf_enrich.py     # CF 题面补爬（多线程，5 workers）
 │   ├── import_deepmind.py  # 从 DeepMind code_contests 导入 CF 题面
 │   ├── import_luogu.py  # 从 GitHub 导入洛谷题目
-│   ├── luogu_enrich.py  # 洛谷题面爬虫（多线程）
-│   ├── luogu_enrich_fast.py  # 洛谷题面快速爬虫（单线程）
+│   ├── luogu_enrich.py      # 洛谷题面爬虫（多线程）
+│   ├── luogu_enrich_fast.py # 洛谷题面快速爬虫（单线程）
 │   ├── embedder.py      # 本地 embedding 模型
 │   └── index.py         # FAISS 向量索引 + SQLite 元数据
-├── problem_data/        # 数据文件
-│   ├── problems.db      # SQLite 题库（24071 题）
-│   ├── problems.faiss   # FAISS 索引（384 维）
-│   └── problems.map.json
+├── problem_data/        # 数据文件（problems.db / problems.faiss / problems.map.json）
 ├── templates/           # C++ 模板文件
-├── problems/            # 生成的题目目录
+├── problems/            # 生成的题目目录 —— 被 gitignore
 └── README.md
 ```
 
@@ -125,12 +61,15 @@ cp-agent/
 两种入口：**自由构思**（`--topic`）与**题意完善**（`--idea` / `--idea-file`，`--topic` 变可选）。
 完善模式下 prompt 要求"不得改变核心题目模型"，只允许补数据范围/时限/样例/规范表述；
 `--name` 指向含已有文件的目录时按"增量补全"处理，失败也不归档用户草稿目录。
+
 查重策略随模式分化（`agent_loop(dedup_policy=…)`）：
+
 - 自由构思 `rewrite`：撞题 → 拦截产出工具，逼 LLM 换题重查
-- 完善模式 `abort`（默认）：题意是用户给的，撞题 → 立即终止，failure_reason 带原题与裁判理由
+- 完善模式 `abort`（默认）：题意是用户给的，撞题 → 立即终止，`failure_reason` 带原题与裁判理由
 - 完善模式 + `--allow-dup` → `warn`：降级为警告继续
 
 LLM 通过 function calling 自主驱动：
+
 ```
 1. 构思题目 → 生成 problem.md
 2. search_problem_db 本地题库查重（≥0.95 强制换题，代码级拦截产出类工具）
@@ -142,6 +81,9 @@ LLM 通过 function calling 自主驱动：
 
 ## 14 个 Tool
 
+其中 12 个在 `pipeline.py`（`@tool` 装饰，沙盒内），`search_problem_db` / `web_search` 两个在
+`agent.py`（不进沙盒，直接发网络请求）。
+
 | Tool | 参数 | 沙盒 | 说明 |
 |------|------|------|------|
 | `read_file` | `path` | ✅ | 读文件 |
@@ -152,12 +94,14 @@ LLM 通过 function calling 自主驱动：
 | `generate_test_data` | `count` | ✅ | 生成 .in（CLI --test-count 经 tool_defaults 兜底） |
 | `validate_inputs` | 无 | ✅ | 校验输入；registerValidation 时统计边界触达（bounds_unhit） |
 | `run_solution` | `timeout_sec` | ✅ | 运行标程（超时=标程有误；默认时限来自 config） |
-| `stress_test` | `count` | ✅ | 对拍（generator 收到 argv[3]="stress"；有 bin/checker 则 SPJ 判定；naive 超软上限=失败并要求缩小对拍数据） |
+| `stress_test` | `count` | ✅ | 对拍（generator 收 argv[3]="stress"；有 bin/checker 则 SPJ 判定；naive 超软上限=**失败并要求缩小对拍数据**） |
 | `write_metadata` | `title`, `algorithm_tags`, … | ✅ | 写 problem.yaml（cases/checker 类型自动扫描） |
 | `check_data_strength` | 无 | ✅ | 最大数据上 naive 必须 TLE（或 ≥5× std），否则数据太弱 |
 | `final_check` | `waive_bounds?` | ✅ | 文件齐全/样例一致/边界覆盖/数据强度，通过后回填 validation 块 |
 | `search_problem_db` | `query`, `top_k` | — | 本地 hybrid 题库查重，返回 dup_verdict |
 | `web_search` | `query` | — | 搜索网页 |
+
+> 📌 已订正：「14 个」是正确的（12 + 2）。此前一度以为文档写多了，是因为只数了 `pipeline.py`。
 
 ## LLM 供应商（config.yaml）
 
@@ -169,68 +113,90 @@ LLM 通过 function calling 自主驱动：
 | ollama | openai | qwen2.5-coder:14b | 无需 |
 | mimo | openai | mimo-v2.5-pro | 直接写在 env_key 里 |
 
-API key 优先级：CLI --api-key > config yaml api_key > env_key（先查环境变量，再当 key 用）
+API key 优先级：CLI `--api-key` > config yaml `api_key` > `env_key`（先查环境变量，再当 key 用）。
 
 ## 难度系统
+
 Codeforces 分数制：800-3000，步长 100，共 23 档。
+
 - 分数只表示难度，不绑定算法或数据规模
 - 算法由 `--topic` 指定，N/时间/内存由 LLM 自行决定
 
 ## 使用方式
-```bash
-conda activate cp-agent
 
-# Agent 模式（默认）
-python main.py --topic dp --difficulty 1800 --provider mimo --max-iterations 40
+```bash
+# 主开发环境是项目 venv（不要用 conda）
+.venv/Scripts/python.exe main.py --topic dp --difficulty 1800 --provider deepseek --max-iterations 40
 
 # Pipeline 模式（无 LLM，对已有题目跑流水线）
-python main.py --pipeline problems/my_problem/
+.venv/Scripts/python.exe main.py --pipeline problems/my_problem/
 
 # 原题查重系统
-python -m problem_db crawl codeforces          # 爬 CF 元数据
-python -m problem_db import codeforces          # 导入 DeepMind CF 题面
-python -m problem_db import luogu               # 导入洛谷题目
-python -m problem_db enrich codeforces 0 5      # 补爬 CF 题面（5线程）
-python -m problem_db build                      # 建 FAISS 索引
-python -m problem_db search "线段树 区间GCD"     # 搜索相似题
+.venv/Scripts/python.exe -m problem_db crawl codeforces   # 爬 CF 元数据
+.venv/Scripts/python.exe -m problem_db import codeforces  # 导入 DeepMind CF 题面
+.venv/Scripts/python.exe -m problem_db import luogu       # 导入洛谷题目
+.venv/Scripts/python.exe -m problem_db enrich codeforces 0 5  # 补爬 CF 题面（5 线程）
+.venv/Scripts/python.exe -m problem_db build              # 建 FAISS 索引
+.venv/Scripts/python.exe -m problem_db search "线段树 区间GCD"  # 搜索相似题
 ```
 
+> 📌 已订正：原文写 `conda activate cp-agent`，实际项目用 `.venv\Scripts\python.exe`。
+
 ## 沙盒规则
+
 - 所有 path 必须是相对路径
 - 拒绝 `..`、绝对路径
-- resolve 后必须仍在 problem_dir 内
+- resolve 后必须仍在 `problem_dir` 内
 
-## 对拍超时策略
-- `run_solution`：单个 .in 超时 → 返回 `timeout: true`（标程有误）
-- `stress_test`：std 超时 5s → 失败；naive 超时 10s → 通过并提前结束
+## 超时策略
+
+默认值在 `config.py`，均可在 `config.yaml` 覆盖：
+
+| 场景 | 配置键（默认） | 行为 |
+|------|--------------|------|
+| `run_solution` 标程 | `solution_timeout_sec`（5s） | 单个 .in 超时 → 返回 `timeout: true`（标程有误） |
+| `stress_test` 标程 | `stress_timeout_sec`（5s） | 超时 → 失败，提示标程复杂度有误 |
+| `stress_test` naive 硬超时 | `stress_naive_timeout_sec`（15s） | 触发软上限判定 |
+| `stress_test` naive 软上限 | `stress_naive_soft_limit_sec`（10s） | 超时 → **`success: false` + `naive_timeout: true`**，要求修改 generator 在 `argv[3]=="stress"` 时生成小数据后重跑 |
+
+> 📌 已订正：原文写「naive 超时 10s → 通过并提前结束」，与 `pipeline.py:708` 实际行为相反
+> （返回失败并要求缩小对拍数据）。同一份文档前面第 155 行反而写对了，属自相矛盾。
 
 ## Agent Loop
+
 - 双协议支持：Anthropic（content blocks）和 OpenAI（tool_calls）
 - 消息格式自动适配
-- 最大迭代次数可配（默认 30）
+- 最大迭代次数可配（默认 30；撞上限先放宽到 45 重试）
 - 每轮 LLM 返回 tool_use → 执行 → 返回 tool_result → 循环
 - 返回 text（无 tool）→ 结束
 
 ## validator 正确写法
+
 ```cpp
 #include "testlib.h"
 int main(int argc, char* argv[]) {
-    registerGen(argc, argv, 1);
-    inf.init(argv[1], _input);
-    int n = inf.readInt(1, 100000, "n");
+    registerValidation(argc, argv);        // ← 从 stdin 读
+    int n = inf.readInt(1, 100000, "n");   // ← 第三个参数是变量名，边界报告靠它
     inf.readEoln();
     // ... validate fields ...
     inf.readEof();
     return 0;
 }
 ```
-不要用 registerValidation()，必须用 registerGen + inf.init。
+
+**必须用 `registerValidation(argc, argv)`**，不要用 `registerGen + inf.init` / `registerTestlibCmd`。
+`pipeline.py:435` 就是拿 `"registerValidation" in val_src` 当「新式（有边界报告）」的判据：
+用旧式写，`--testOverviewLogFileName` 不产出，**边界覆盖检查直接失效**，门禁那条硬失败会挂。
+
+> 📌 已订正：`AGENT.md` 原文写的是「不要用 `registerValidation()`，必须用 `registerGen + inf.init`」——
+> 完全写反了，与权威源 `prompts.py:132` 正好相反。这条若被注入会直接污染出题。
 
 ## 原题查重系统
 
 ### 数据来源
 
 **Codeforces（12228 题）**
+
 1. `crawler.py` — CF API `problemset.problems` 获取全部题目元数据（标题、标签、分数）
 2. `import_deepmind.py` — 从 HuggingFace `deepmind/code_contests` 下载 parquet，提取 CF 题面（4118 题）
 3. `cf_enrich.py` — 多线程补爬剩余题面（5 workers，3-8s 延迟，~50 题/分钟）
@@ -239,6 +205,7 @@ int main(int argc, char* argv[]) {
    - 结果：11985/12228（98.0%）有完整题面
 
 **洛谷（11843 题）**
+
 1. `import_luogu.py` — 从 GitHub `Molmin/luoguProblems-datas` 下载元数据
    - `https://raw.githubusercontent.com/Molmin/luoguProblems-datas/main/data/P.json`
    - `https://raw.githubusercontent.com/Molmin/luoguProblems-datas/main/data/SP.json`
@@ -254,44 +221,47 @@ int main(int argc, char* argv[]) {
    - 剩余 1024 题（8%）为 SPOJ 系列，在洛谷上无完整题面
 
 ### 技术栈
+
 - Embedding：`paraphrase-multilingual-MiniLM-L12-v2`（384 维，本地推理）
 - 索引：FAISS IndexFlatIP（余弦相似度）
 - 存储：SQLite（题库）+ FAISS 文件 + JSON 映射
 
 ### 使用方法
+
 ```bash
 # 爬取 CF 元数据
-python -m problem_db crawl codeforces
+.venv/Scripts/python.exe -m problem_db crawl codeforces
 
 # 导入 DeepMind CF 题面（需代理访问 HuggingFace）
 export HUGGING_FACE_HUB_TOKEN="your_token"
-python -m problem_db import codeforces
+.venv/Scripts/python.exe -m problem_db import codeforces
 
 # 补爬 CF 题面（多线程）
-python -m problem_db enrich codeforces 0 5
+.venv/Scripts/python.exe -m problem_db enrich codeforces 0 5
 
 # 导入洛谷（从 GitHub）
-python -m problem_db import luogu
+.venv/Scripts/python.exe -m problem_db import luogu
 
 # 补全洛谷题面（直接爬取洛谷网页）
-python -m problem_db enrich_luogu 0 3 2.0    # 全量，3 workers，2s 延迟
-python -m problem_db enrich_luogu 100 3 2.0  # 仅前 100 题
+.venv/Scripts/python.exe -m problem_db enrich_luogu 0 3 2.0    # 全量，3 workers，2s 延迟
+.venv/Scripts/python.exe -m problem_db enrich_luogu 100 3 2.0  # 仅前 100 题
 
 # 重建 FAISS 索引
-python -m problem_db build
+.venv/Scripts/python.exe -m problem_db build
 
 # 搜索相似题
-python -m problem_db search "动态规划 背包"
+.venv/Scripts/python.exe -m problem_db search "动态规划 背包"
 ```
 
 ## 查重流程（检索召回 + LLM 裁判判定）
 
 Agent 模式下，`search_problem_db` 的完整流程（`agent._dedup_check`）：
+
 1. **多路召回**：hybrid 检索（FAISS 向量 + FTS/LIKE 关键词 + 术语 rerank）跑三路 query——
    LLM 关键词、题面标题、题面描述首段——合并去重取高分。原因：LLM 的 query 措辞不稳定，
    整段题面 embedding 会稀释语义（实测同模型原题标题路召回 0.79，整段题面路召不回）
 2. **触发**：`vector_score`（余弦相似度）≥ `dedup_judge_trigger`（默认 0.5）的候选，
-   取前 `dedup_judge_max_candidates`（默认 5）个
+   取前 `dedup_judge_max_candidates`（默认 **50**）个
 3. **裁判**：把新题 problem.md + 候选题面摘要交给独立 LLM 裁判，逐候选判断是否
    【同一题目模型】（抽象掉故事背景后输入结构/约束/目标/解法基本一致）
 4. **门禁**：任一候选判 same_model → `dup_verdict = must_change`，agent_loop 拦截
@@ -299,6 +269,23 @@ Agent 模式下，`search_problem_db` 的完整流程（`agent._dedup_check`）�
    裁判调用失败时退回向量相似度阈值兜底（≥0.85 换题 / 0.7-0.85 人工判断）
 5. **自建题入库**（`index_generated`，默认开）：生成成功的题目 upsert 进 SQLite/FTS
    并追加 FAISS 向量（`problem_db/ingest.py`），后续生成的查重能召回它——批量出题防自撞
+
+> 📌 已订正：原文写 `dedup_judge_max_candidates` 默认 5，实际 `config.py:101` 默认 **50**。
+
+### 为什么不用分数阈值判定
+
+`final_score` 是 RRF 排名融合分（量级 ~0.1，仅用于排序）；`vector_score` 度量的是叙事相似度
+而非题目模型等价性。实测：与 P4309 完全同模型的题向量相似度仅 0.68，而裸 LIS 与"动态插入 LIS"
+（不同模型）也能到 0.70——任何单一阈值都同时存在漏杀和误杀，因此分数只作召回触发器，
+判定交给 LLM 裁判。
+
+实测示例（2026-07-26，DeepSeek 裁判）：
+
+- 复刻 P4309 动态插入 LIS → 裁判判 `same_model=true`，理由精确到输入输出格式 → must_change ✅
+- 裸 LIS vs 动态 LIS/树上 LIS/LIS 期望 → 裁判逐个说明模型差异后放行 ✅
+
+**已知盲区**：题库只含洛谷 P/SP 题（无 B 题库入门题）与 CF，裸经典题（如 B3637 裸 LIS）
+可能不在召回结果里；经典套路仍建议 Agent 主动规避。
 
 ## 可选质量增强（verify.py，默认关闭）
 
@@ -308,27 +295,19 @@ Agent 模式下，`search_problem_db` 的完整流程（`agent._dedup_check`）�
   动机：std 和 naive 同源，错得一致时对拍测不出来。`cross_check_model` 可指定验题 provider（需强模型）
 - **难度校准** `--difficulty-review` / config `difficulty_review`：独立评审读题面+题解估
   CF rating，与标称偏差 >300 警告（写入 result.json，不判失败）。`difficulty_review_model`
-  可独立配置，缺省优先复用 dedup_judge_model
+  可独立配置，缺省优先复用 `dedup_judge_model`
 - 两者的 token 用量都并入 result.json 的 tokens 总账
 
-**为什么不用分数阈值判定**：`final_score` 是 RRF 排名融合分（量级 ~0.1，仅用于排序）；
-`vector_score` 度量的是叙事相似度而非题目模型等价性。实测：与 P4309 完全同模型的题
-向量相似度仅 0.68，而裸 LIS 与"动态插入 LIS"（不同模型）也能到 0.70——任何单一阈值
-都同时存在漏杀和误杀，因此分数只作召回触发器，判定交给 LLM 裁判。
-
-实测示例（2026-07-26，DeepSeek 裁判）：
-- 复刻 P4309 动态插入 LIS → 裁判判 same_model=true，理由精确到输入输出格式 → must_change ✅
-- 裸 LIS vs 动态 LIS/树上 LIS/LIS 期望 → 裁判逐个说明模型差异后放行 ✅
-
-**已知盲区**：题库只含洛谷 P/SP 题（无 B 题库入门题）与 CF，裸经典题（如 B3637 裸 LIS）
-可能不在召回结果里；经典套路仍建议 Agent 主动规避。
-
 ## 已知问题
-1. testlib.h 在 problem_dir 里找不到（在项目根目录），Agent 不知道
-2. web_search 用 DuckDuckGo HTML 解析，质量不稳定
-3. macOS 没有 bits/stdc++.h，需用标准头文件
+
+1. ~~testlib.h 在 problem_dir 里找不到（在项目根目录），Agent 不知道~~
+   ✅ **已解决**：`pipeline.py:89` 编译时统一追加 `-I{testlib 所在目录}`，任意目录都能
+   `#include "testlib.h"`；`export.py:485` 还会把它拷进导出包。
+2. `web_search` 用 DuckDuckGo HTML 解析，质量不稳定
+3. macOS 没有 `bits/stdc++.h`，需用标准头文件
 4. ~~洛谷 P9000+ 题目无题面~~ ✅ 已通过 `luogu_enrich_fast.py` 补全（100% 覆盖）
 5. AtCoder 爬虫暂未实现（API 需要认证）
 6. HuggingFace 下载需要代理：`export https_proxy=http://127.0.0.1:7890`
 7. CF Gym 无法爬取 — 页面有 Cloudflare 防护，API 只返回元数据不返回题面
 8. 洛谷 SPOJ 系列（SP 开头）约 1024 题无题面 — 洛谷上本身就没有完整页面
+9. **看板门禁的 1.2MB 单测试点上限**：2026-09-28 才定，存量有 54 个超标题目（暂不处理）
