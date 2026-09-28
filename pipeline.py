@@ -305,6 +305,24 @@ def tool_compile_cpp(problem_dir: Path, source: str, output: str) -> dict:
     if not src_resolved.exists():
         return {"success": False, "message": f"源文件不存在: {source}", "source": source}
 
+    # freopen 防御：solution/naive 必须用 stdin/stdout。pipeline 以 `solution < input.in`
+    # 的方式喂输入、从 stdout 收输出；若写了 freopen，输入读不到、输出写进文件而非 stdout，
+    # 后面 run_solution 会生成空 .out、data_strength/final_check 全挂。
+    # （OJ 的 file_io 由 batch_submit.py 在提交时自动注入 freopen，标程本身不该写。）
+    _fname = os.path.basename(str(src_resolved))
+    if _fname in ("solution.cpp", "naive.cpp"):
+        _txt = src_resolved.read_text(encoding="utf-8", errors="ignore")
+        if "freopen" in _txt:
+            return {
+                "success": False,
+                "message": f"{_fname} 里出现 freopen —— 标程/暴力必须用标准输入输出。"
+                           f"本流水线以 stdin 重定向运行代码，freopen 会让输入读不到、输出写错位置；"
+                           f"请删除 freopen 后重新编译（OJ 的文件读写由上传流程自动注入，无需手写）",
+                "source": source,
+                "output": output,
+                "freopen": True,
+            }
+
     out_resolved.parent.mkdir(parents=True, exist_ok=True)
     ok, msg = _compile(src_resolved, out_resolved)
 

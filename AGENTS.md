@@ -65,7 +65,11 @@ B 类  本地运行状态（gitignore）：problems/、config.yaml、.workbuddy/
 3. **validator 必须用 `registerValidation(argc, argv)`**，从 stdin 读，且 `readInt`/`readLong`
    必须带变量名（第三个参数）。**不要**用 `registerGen + inf.init` —— 那样不产边界报告，
    门禁的「边界未触达」检查会失效。权威源是 `prompts.py`，别凭记忆写。
-4. `solution.cpp` / `naive.cpp` 用标准 stdin/stdout，**不要 freopen**（否则流水线跑不动）。
+4. `solution.cpp` / `naive.cpp` **绝不写 freopen**。本项目有**两套环境、要求相反**：
+   ① CI/pipeline 用 `solution < input.in` 跑标程 ⇒ 必须 stdin/stdout；② OJ 是 file_io 模式
+   ⇒ 必须 freopen（否则 RE）。**解法**：标程保持纯净（约束已写进 `prompts.py`，
+   并由 `pipeline.tool_compile_cpp` 硬拦），**提交 OJ 时由 `batch_submit.py` 的 `fio_base()`
+   从 hydro 包读 input.name 自动注入 freopen** ⇒ 两套环境各自正确，永不手写。
 5. 沙盒规则：path 必须相对、拒绝 `..`、resolve 后必须仍在 problem 目录内。
 
 ## 4. 关键坑（每条都踩过，都浪费时间）

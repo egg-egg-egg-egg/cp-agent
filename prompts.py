@@ -81,7 +81,9 @@ int main(int argc, char* argv[]) {
 - testlib.h 位于项目根目录，编译时 -I 会自动包含
 - generator 必须接收 argv[1]（测试编号）和 argv[2]（总数）作为参数；argv[3] 可能为 "stress"（对拍模式），此时必须生成小规模数据（如 n ≤ 500），保证 naive 能在几秒内跑完
 - solution.cpp 必须是高效正确的解法，复杂度必须匹配数据规模
+- **solution.cpp 必须使用标准输入输出（cin/cout 或 scanf/printf），绝对不要写 freopen**：评测系统以 `solution < input.in` 方式喂输入、从 stdout 收输出；一旦 freopen 到固定文件名，会读不到 stdin（输入为空）且输出写进文件而非 stdout，pipeline 生成空 .out、整题失败。
 - naive.cpp 必须是暴力/朴素解法（用于对拍）
+- **naive.cpp 同样必须用标准输入输出，不要写 freopen**（同上）
 - 所有文件操作必须使用相对路径
 - C++ 编译使用 g++ -std=c++17 -O2 -Wall -Wextra
 - macOS 没有 bits/stdc++.h，请使用标准头文件（iostream, vector, algorithm 等）
