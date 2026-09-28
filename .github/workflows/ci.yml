@@ -18,3 +18,26 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: pytest -q
+
+  gate:
+    # 只读门禁自检：不访问网络、不写任何文件。
+    # ⚠️ CI 上没有 problems/（被 .gitignore 忽略）⇒ 这里只能跑门禁的**单元测试**；
+    #    「全量题目体检」必须在本地跑（需要真实的 problems/ 产物）。
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+      # 只装运行时依赖 + pytest（不需要 faiss/numpy 那一套）
+      - run: pip install -e . pytest
+      - name: 门禁回归测试（flow/block 列表解析、未豁免边界必须拦下）
+        run: python -m pytest tests/test_problem_gate.py -q
+      - name: 若有题目目录则跑全量门禁
+        run: |
+          if compgen -G "problems/*/problem.yaml" > /dev/null; then
+            python problem_gate.py problems/*/
+          else
+            echo "CI 上无 problems/（被 .gitignore 忽略）—— 全量门禁在本地跑"
+          fi
