@@ -318,9 +318,10 @@ def tool_compile_cpp(problem_dir: Path, source: str, output: str) -> dict:
 
 # ─── 6. generate_test_data ───────────────────────────────────────────────────
 
-# 判题机负载约束（黄sir 2026-09-28 定）：单个测试点不超过 1.2MB，
-# 否则判题机跑很久、增大网站负载。超出时生成报错，让 agent 改小 generator 的数据规模。
-MAX_TESTCASE_BYTES = int(1.2 * 1024 * 1024)
+# 单个测试点大小安全网（黄sir 2026-09-28 更新）：平台优化后已能承受大测试点
+# （实测 12.92MB 判题仅 256ms），文件大小不再是有效判据 —— 真正的门槛是
+# tool_run_solution 里的「标程耗时」。此值仅作防磁盘爆/异常的兜底。
+MAX_TESTCASE_BYTES = int(100 * 1024 * 1024)
 
 
 @tool("generate_test_data", "运行已编译的 generator 生成测试数据。generator 必须先编译为 bin/generator。", {

@@ -3,18 +3,19 @@
 过滤规则：单个测试点（.in）> 1MB 的题跳过（避免判题机卡顿）。
 用法：python batch_submit.py [--dry-run]
 """
+import pathlib
+import re
 import sys
 import time
-import re
-import zipfile
-import pathlib
 import winreg
+import zipfile
+
 import requests
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from integrations import hustoj  # noqa: E402
 
-MAX_CASE_BYTES = 800 * 1024  # 800KB（黄sir 定的提交阈值，更大的暂不提交）
+MAX_CASE_BYTES = 100 * 1024 * 1024  # 平台已能承受大测试点（实测 12.92MB 仅 256ms），阈值实质解除
 SUBMIT_LOG = pathlib.Path('submitted_pids.txt')  # 已提交过标程的题（避免重复提交）
 
 
@@ -148,7 +149,7 @@ def main():
         except Exception as e:
             fail += 1
             print('  [异常] %-28s %s' % (name, repr(e)[:80]), flush=True)
-        time.sleep(4)  # 放慢提交节奏，避免判题队列堆积卡 OJ
+        time.sleep(15)  # 串行放慢：给判题机喘息，避免被判题队列压力杀掉
 
     print('\n=== 汇总 ===', flush=True)
     print('提交成功 %d / 跳过(已提交) %d / 跳过(超阈值) %d / 跳过(无标程) %d / 失败 %d' % (
