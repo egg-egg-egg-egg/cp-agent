@@ -318,6 +318,11 @@ def tool_compile_cpp(problem_dir: Path, source: str, output: str) -> dict:
 
 # ─── 6. generate_test_data ───────────────────────────────────────────────────
 
+# 判题机负载约束（黄sir 2026-09-28 定）：单个测试点不超过 1.2MB，
+# 否则判题机跑很久、增大网站负载。超出时生成报错，让 agent 改小 generator 的数据规模。
+MAX_TESTCASE_BYTES = int(1.2 * 1024 * 1024)
+
+
 @tool("generate_test_data", "运行已编译的 generator 生成测试数据。generator 必须先编译为 bin/generator。", {
     "type": "object",
     "properties": {
@@ -349,8 +354,17 @@ def tool_generate_test_data(problem_dir: Path, count: int = 30) -> dict:
             if len(errors) >= 3:
                 break
             continue
+        data = stdout
+        size = len(data.encode("utf-8"))
+        if size > MAX_TESTCASE_BYTES:
+            errors.append(f"test {i}: 测试点 {size / 1024 / 1024:.2f}MB 超过 "
+                          f"{MAX_TESTCASE_BYTES / 1024 / 1024:.1f}MB 上限，"
+                          f"请修改 generator.cpp 减小数据规模（降低 n/m 上限或缩小数值范围）后重新生成")
+            if len(errors) >= 3:
+                break
+            continue
         fpath = inputs_dir / f"{i:02d}.in"
-        fpath.write_text(stdout)
+        fpath.write_text(data)
         created.append(f"{i:02d}.in")
 
     if errors:
