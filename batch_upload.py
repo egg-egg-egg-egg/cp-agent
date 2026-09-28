@@ -9,10 +9,10 @@
 凭据：OJ_USER / OJ_PASSWORD 从注册表 HKCU\\Environment 读取；host/kind 走 upload_config.toml。
 """
 import os
+import pathlib
 import re
 import subprocess
 import sys
-import pathlib
 import winreg
 
 EXCLUDE = {'ci_v7_smoke', 'example_sum', 'failed', 'smoke_wb', 'cspj_mock1'}
