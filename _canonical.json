@@ -1,0 +1,53 @@
+{
+  "title": "信奥题库看板",
+  "page_type": "display",
+  "properties": {
+    "编号": { "text": "" },
+    "类型": { "select": { "options": [
+      { "text": "搜索 (BFS/DFS)", "id": "C2IU1Na87zrZ" },
+      { "text": "二分", "id": "N0DdsqxrP4bu" },
+      { "text": "构造", "id": "VsZlTDl3yhNs" },
+      { "text": "数据结构", "id": "z6gIwQNvyfte" },
+      { "text": "动态规划", "id": "uVpkXF4A17vC" },
+      { "text": "并查集", "id": "zhY6fyQQlvFu" },
+      { "text": "图论", "id": "P4SXIwfUsjER" },
+      { "text": "贪心", "id": "c3Efo1QTEyk1" },
+      { "text": "数学", "id": "OgANWg2oEoao" },
+      { "text": "前缀和", "id": "XgSQM2fIflpn" },
+      { "text": "最短路", "id": "dnH7tNCAC0Dt" },
+      { "text": "模拟", "id": "tH2ZlxlIMfrC" },
+      { "text": "字符串", "id": "Qzseq5SNjB5X" }
+    ] } },
+    "考点": { "text": "" },
+    "难度": { "number": { "decimalPlaces": 0, "useSeparate": false } },
+    "平台PID": { "text": "" }
+  },
+  "field_mapping": {
+    "编号": { "value_type": "text", "form_input": null, "display_selector": "[data-field=\"编号\"]", "render_signal": "js:PROBLEMS.id" },
+    "类型": { "value_type": "select", "form_input": null, "display_selector": "[data-field=\"类型\"]", "render_signal": "js:PROBLEMS.topic", "options_value_key": "text" },
+    "考点": { "value_type": "text", "form_input": null, "display_selector": "[data-field=\"考点\"]", "render_signal": "js:PROBLEMS.focus" },
+    "难度": { "value_type": "number", "form_input": null, "display_selector": "[data-field=\"难度\"]", "render_signal": "js:PROBLEMS.difficulty" },
+    "平台PID": { "value_type": "text", "form_input": null, "display_selector": "[data-field=\"平台PID\"]", "render_signal": "js:PROBLEMS.pid" }
+  },
+  "options_map": {
+    "类型": {
+      "搜索 (BFS/DFS)": { "text": "搜索 (BFS/DFS)", "id": "C2IU1Na87zrZ" },
+      "二分": { "text": "二分", "id": "N0DdsqxrP4bu" },
+      "构造": { "text": "构造", "id": "VsZlTDl3yhNs" },
+      "数据结构": { "text": "数据结构", "id": "z6gIwQNvyfte" },
+      "动态规划": { "text": "动态规划", "id": "uVpkXF4A17vC" },
+      "并查集": { "text": "并查集", "id": "zhY6fyQQlvFu" },
+      "图论": { "text": "图论", "id": "P4SXIwfUsjER" },
+      "贪心": { "text": "贪心", "id": "c3Efo1QTEyk1" },
+      "数学": { "text": "数学", "id": "OgANWg2oEoao" },
+      "前缀和": { "text": "前缀和", "id": "XgSQM2fIflpn" },
+      "最短路": { "text": "最短路", "id": "dnH7tNCAC0Dt" },
+      "模拟": { "text": "模拟", "id": "tH2ZlxlIMfrC" },
+      "字符串": { "text": "字符串", "id": "Qzseq5SNjB5X" }
+    }
+  },
+  "source": "js_data",
+  "sdk_calls_found": false,
+  "confidence": "high",
+  "needs_database": { "level": "strong", "reason": "题库看板展示一组题目清单，需要动态数据、可后续增补新题" }
+}

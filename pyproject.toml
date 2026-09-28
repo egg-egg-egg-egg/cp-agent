@@ -24,7 +24,7 @@ dev = ["pytest>=8", "ruff>=0.5", "numpy>=1.26", "faiss-cpu>=1.8"]
 cp-agent-gui = "gui:main"
 
 [tool.setuptools]
-py-modules = ["main", "config", "agent", "pipeline", "batch_generate", "report", "export", "upload", "logutil", "gui", "llm_client", "dedup", "prompts", "verify"]
+py-modules = ["main", "config", "agent", "pipeline", "problem_gate", "batch_generate", "report", "export", "upload", "logutil", "gui", "llm_client", "dedup", "prompts", "verify"]
 packages = ["problem_db", "integrations"]
 
 [tool.ruff]

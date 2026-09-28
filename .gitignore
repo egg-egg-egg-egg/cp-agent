@@ -66,6 +66,9 @@ problems/failed/
 *.zip
 batch_checkpoint.json
 
+# ─── 看板同步的本地运行态（已下载的 run 记录 / 被门禁拦下的产物）───
+.dashboard/
+
 # ─── Logs ───
 *.log
 

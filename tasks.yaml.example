@@ -1,0 +1,45 @@
+# tasks.yaml 示例 / 字段说明 —— 新增出题任务时照这个改。
+#
+# 真实清单是同目录的 tasks.yaml（**被 git 追踪，会进仓库**）。
+# 本文件是模板，不会被 pipeline 读取，只作参考。
+#
+# ── 字段 ────────────────────────────────────────────────────────────────
+#   id          三位编号，仅用于排序与追踪
+#   topic       算法主题，必须与 config.yaml 的 topics 对应
+#   focus       考点细分 —— 防重复的第一道闸门：把同一 topic 的考点切细，
+#               让每题占一个独立格子；LLM 出题时只看自己这一行，
+#               重复的根源在设计阶段就被消除
+#   difficulty  Codeforces rating（800~1800，中考纲范围内）
+#   status      见下
+#   name        题目目录名；status=done 时由 CI 自动回填（别手改）
+#
+# ── status 取值（关键：**只有 done 参与出题与看板同步**）────────────────
+#   pending   待出。CI 的 `tasklist.py next` **只挑这个状态**。
+#   done      已出。唯一参与「出题队列选中 / 看板同步 / PID 回填」的状态。
+#   failed    出题失败，需人工介入。
+#   archived  已归档：曾出过但已废弃、或已决定放弃 ⇒ 永久出局。
+#             archived 行**可以保留 name 供追溯**，不会被 --scan 报「name 失效」。
+#   判据：build_records.build_entries() 只收 status=done ⇒ 新增状态值零代码改动即生效。
+#
+# ── 新增一题的流程 ──────────────────────────────────────────────────────
+#   ① 在 problems: 下加一行，status 写 pending（name 留空）
+#   ② 触发 GitHub Action「Generate Problem」（workflow_dispatch）
+#      CI 成功后会把该行自动改成 done 并回填 name，然后 commit 回 main
+#   ③ 本地跑 python download_problems.py（下载 → 门禁质检 → 落 problems/ → 同步看板）
+#   ④ 跑 batch_upload.py 上传 OJ → 自动回填「平台PID」
+#
+# ── 维护约定 ────────────────────────────────────────────────────────────
+#   · 想跳过某题：把 status 改成 failed 或 archived
+#   · 难度梯度参考：入门 800-1000 / 基础 1100-1400 / 进阶 1500-1800
+#   · 已刻意避开五年真题未考的项：线段树、树形DP、网络流、复杂几何
+#   · 机器回写（CI 的 mark-done）刻意**不用 yaml.dump** —— 那会抹掉本文件的注释与分组
+
+problems:
+  # 待出：CI 会挑第一个 pending（name 留空，出题成功后由 CI 回填）
+  - {id: "101", topic: dp,     focus: "示例-线性DP入门",           difficulty: 1100, status: pending,  name: ""}
+
+  # 已出：name 由 CI 回填，不要手改
+  - {id: "102", topic: greedy, focus: "示例-区间贪心-最少教室数",   difficulty: 1200, status: done,     name: "greedy_1200_205"}
+
+  # 已归档：永久出局；name 仅作追溯，不会再被当作「name 失效」告警
+  - {id: "103", topic: dp,     focus: "示例-树形DP（本纲已避开）", difficulty: 1600, status: archived, name: "dp_1600_999"}

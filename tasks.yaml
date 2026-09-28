@@ -7,12 +7,17 @@
 #               同一 topic 下把考点切细，100 题对应 100 个不同格子，
 #               LLM 出题时只看自己这一行，重复的根源在设计阶段就被消除
 #   difficulty  Codeforces rating（800~1800，中考纲范围内）
-#   status      pending（待出）/ done（已出）/ failed（出题失败，需人工介入）
+#   status      pending（待出）/ done（**已出，唯一参与出题与看板同步的状态**）
+#               failed（出题失败，需人工介入）
+#               archived（已归档：曾出过但已废弃、或已决定放弃 ⇒ 永久出局）
 #   name        题目目录名；status=done 时由 CI 自动回填
 #
 # 维护约定
 #   · CI 出题成功后会**自动把 status 改成 done 并回填 name**（commit 回 main）
-#   · 想调整内容直接改本文件；想跳过的题把 status 改成 failed 即可
+#   · 想调整内容直接改本文件；**想跳过的题把 status 改成 failed 或 archived 即可**
+#   · 判据：build_records.build_entries() 只收 status=done 的行
+#     ⇒ 其余状态既不进看板、也不会被 --scan 当作「name 失效」告警；
+#       archived 行可以留着 name 供追溯，无害
 #   · 难度梯度参考：入门 800-1000 / 基础 1100-1400 / 进阶 1500-1800
 #   · 已刻意避开五年真题未考的项：线段树、树形DP、网络流、复杂几何
 
@@ -26,7 +31,7 @@ problems:
   - {id: "006", topic: dp,                focus: "DP+单调队列-建塔最小代价",          difficulty: 1600, status: done,    name: "mock1_tower"}
   - {id: "007", topic: binary_search,     focus: "二分答案+差分-浇水长高",            difficulty: 1400, status: done,    name: "mock1_water"}
   - {id: "008", topic: dp,                focus: "线性DP-不相邻取数",                 difficulty: 1100, status: done,    name: "smoke_dp2"}
-  - {id: "009", topic: dp,                focus: "DP+前缀最值-约束下最大和",          difficulty: 1500, status: done,    name: "ci_1_dp"}
+  - {id: "009", topic: dp,                focus: "DP+前缀最值-约束下最大和",          difficulty: 1500, status: done,    name: "dp_1500_1"}
 
   # ── 模拟 simulation（14 题）──────────────────────────────────────
   - {id: "010", topic: simulation,        focus: "基础模拟-按规则逐条处理",           difficulty: 800,  status: done, name: "simulation_800_3"}
@@ -86,10 +91,10 @@ problems:
   - {id: "054", topic: dp,                focus: "完全背包-无限次选取",               difficulty: 1200, status: done, name: "dp_1200_53"}
   - {id: "055", topic: dp,                focus: "分组背包-每组选一件",               difficulty: 1400, status: done, name: "dp_1400_63"}
   - {id: "056", topic: dp,                focus: "序列DP-编辑距离",                   difficulty: 1400, status: done, name: "dp_1400_72"}
-  - {id: "057", topic: dp,                focus: "区间DP-合并代价最小",               difficulty: 1500, status: done, name: "dp_1500_80"}
+  - {id: "057", topic: dp,                focus: "区间DP-合并代价最小",               difficulty: 1500, status: archived, name: "dp_1500_80"}
   - {id: "058", topic: dp,                focus: "区间DP-最长回文子序列",             difficulty: 1500, status: done, name: "dp_1500_86"}
   - {id: "059", topic: dp,                focus: "多重背包-二进制拆分",               difficulty: 1500, status: done, name: "dp_1500_91"}
-  - {id: "060", topic: dp,                focus: "树形DP-子树统计入门",               difficulty: 1600, status: done, name: "dp_1600_96"}
+  - {id: "060", topic: dp,                focus: "树形DP-子树统计入门",               difficulty: 1600, status: archived, name: "dp_1600_96"}
   - {id: "061", topic: dp,                focus: "状态压缩-棋盘覆盖",                 difficulty: 1600, status: done, name: "dp_1600_99"}
   - {id: "062", topic: dp,                focus: "状压DP-集合选取计数",               difficulty: 1700, status: done, name: "dp_1700_102"}
   - {id: "063", topic: dp,                focus: "概率DP-期望步数",                   difficulty: 1700, status: done, name: "dp_1700_165"}

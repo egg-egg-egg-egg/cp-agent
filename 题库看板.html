@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>信奥题库看板</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128218;</text></svg>">
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#30363d;
+  --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff;
+  --green:#3fb950; --blue:#58a6ff; --orange:#f0883e;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",
+  "PingFang SC","Microsoft YaHei",sans-serif;padding:20px;line-height:1.5}
+.wrap{max-width:1280px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:18px}
+header h1{font-size:20px;font-weight:600}
+.progress{flex:1;min-width:200px;max-width:420px}
+.bar{height:10px;background:var(--panel2);border-radius:6px;overflow:hidden;border:1px solid var(--border)}
+.bar>span{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--accent));
+  width:0;transition:width .25s}
+.pcount{font-size:13px;color:var(--muted);margin-top:4px}
+.controls{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;margin-bottom:20px}
+.row{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+.field{display:flex;flex-direction:column;gap:8px}
+.field>label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{cursor:pointer;user-select:none;font-size:13px;padding:4px 11px;border-radius:14px;
+  border:1px solid var(--border);background:var(--panel2);color:var(--text);transition:.15s}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:600}
+.sel{display:flex;gap:8px;align-items:center}
+select{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+  border-radius:6px;padding:5px 8px;font-size:13px}
+input[type=text]{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+  border-radius:6px;padding:6px 10px;font-size:13px;min-width:180px}
+.seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.seg button{background:var(--panel2);color:var(--text);border:none;padding:6px 12px;
+  font-size:13px;cursor:pointer}
+.seg button.on{background:var(--accent);color:#06121f;font-weight:600}
+.btns{display:flex;gap:8px;margin-left:auto}
+.btns button{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+  border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer}
+.btns button:hover{border-color:var(--accent)}
+.presets{display:flex;gap:6px}
+.presets .chip{font-size:12px;padding:3px 9px}
+.section{margin-bottom:22px}
+.section h2{font-size:15px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.section h2 .meta{font-size:12px;color:var(--muted);font-weight:400}
+.section h2 .coll{cursor:pointer;color:var(--muted);font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:11px 12px;
+  display:flex;flex-direction:column;gap:7px;position:relative;transition:.15s}
+.card:hover{border-color:var(--accent)}
+.card--lv1{border-left:4px solid var(--green)}
+.card--lv2{border-left:4px solid var(--blue)}
+.card--lv3{border-left:4px solid var(--orange)}
+.card.link{cursor:pointer}
+.card.done{opacity:.58}
+.card.done.card--lv1,.card.done.card--lv2,.card.done.card--lv3{border-left-color:var(--green)}
+.card .top{display:flex;align-items:center;gap:8px}
+.card .chk{appearance:none;width:17px;height:17px;border:1.5px solid var(--accent);
+  border-radius:4px;cursor:pointer;position:relative;flex:0 0 auto;background:var(--panel2)}
+.card .chk:checked{background:var(--green);border-color:var(--green)}
+.card .chk:checked::after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:center;color:#06121f;font-size:12px;font-weight:700}
+.card .pid{font-size:12px;color:var(--muted);margin-left:auto}
+.card .pid a{color:var(--accent);text-decoration:none;font-weight:600}
+.card .pid a:hover{text-decoration:underline}
+.card .title{font-size:14px;color:var(--text);padding-left:25px}
+.card.done .title{text-decoration:line-through}
+.badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;align-self:flex-start;
+  margin-left:25px;color:#06121f;letter-spacing:.02em}
+.b-lv1{background:linear-gradient(135deg,#3fb950,#56d364)}
+.b-lv2{background:linear-gradient(135deg,#58a6ff,#79c0ff)}
+.b-lv3{background:linear-gradient(135deg,#f0883e,#ffa94d)}
+.empty{color:var(--muted);font-size:14px;padding:30px;text-align:center}
+.hidden{display:none}
+@media (max-width:640px){ .cards{grid-template-columns:1fr} }
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel);
+  border:1px solid var(--accent);color:var(--text);padding:10px 18px;border-radius:8px;font-size:13px;
+  opacity:0;transition:.25s;pointer-events:none}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📘 信奥题库看板</h1>
+    <div class="progress">
+      <div class="bar"><span id="bar"></span></div>
+      <div class="pcount" id="pcount">加载中…</div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="row">
+      <div class="field" style="flex:1;min-width:280px">
+        <label>题目类型</label>
+        <div class="chips" id="topicChips"></div>
+      </div>
+      <div class="field">
+        <label>难度范围</label>
+        <div class="sel">
+          <select id="minDiff"></select>
+          <span style="color:var(--muted)">~</span>
+          <select id="maxDiff"></select>
+        </div>
+        <div class="presets" id="presets">
+          <span class="chip" data-min="800" data-max="1000">入门 800-1000</span>
+          <span class="chip" data-min="1100" data-max="1400">基础 1100-1400</span>
+          <span class="chip" data-min="1500" data-max="1800">进阶 1500-1800</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>完成状态</label>
+        <div class="seg" id="statusSeg">
+          <button data-v="all" class="on">全部</button>
+          <button data-v="todo">仅未做</button>
+          <button data-v="done">仅已做</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>搜索</label>
+        <input type="text" id="search" placeholder="题号 / 考点关键词">
+      </div>
+      <div class="btns">
+        <button id="exportBtn">导出</button>
+        <button id="importBtn">导入</button>
+        <button id="resetBtn">清空标记</button>
+        <input type="file" id="importFile" accept="application/json" class="hidden">
+      </div>
+    </div>
+  </div>
+
+  <div id="board"></div>
+</div>
+<div id="toast"></div>
+
+<template id="tpl-section">
+  <div class="section">
+    <h2><span class="coll">▾</span>
+      <span data-field="类型" data-sp-bindable="database" data-sp-database-id="TKB9rZWsiuJUJJHDjkL55J">类型</span>
+      <span class="meta" data-sp-bindable="database" data-sp-database-id="TKB9rZWsiuJUJJHDjkL55J">0 / 0 已做</span>
+    </h2>
+    <div class="cards"></div>
+  </div>
+</template>
+
+<template id="tpl-card">
+  <div class="card">
+    <div class="top">
+      <input type="checkbox" class="chk">
+      <span class="pid"><span data-field="编号" data-sp-bindable="database" data-sp-database-id="TKB9rZWsiuJUJJHDjkL55J">#000</span> ·
+        <span data-field="平台PID" data-sp-bindable="database" data-sp-database-id="TKB9rZWsiuJUJJHDjkL55J">PID</span></span>
+    </div>
+    <div class="title" data-field="考点" data-sp-bindable="database" data-sp-database-id="TKB9rZWsiuJUJJHDjkL55J">考点</div>
+    <span class="badge" data-field="难度" data-sp-bindable="database" data-sp-database-id="TKB9rZWsiuJUJJHDjkL55J">难度</span>
+  </div>
+</template>
+
+<script>
+(function () {
+  var DATABASE_ID = 'TKB9rZWsiuJUJJHDjkL55J';
+  var OJ_BASE = 'https://oj.ipachong.com/problem.php?id=';
+  var LS_KEY = 'cp_agent_done_problems_v1';
+
+  var SCHEMA_OPTIONS = {};   // { fieldName: [{text,id}] }
+  var PROBLEMS = [];         // 由数据库行构造
+  var DIFFS = [];
+  var done = [];             // 已做题目编号（本地存储）
+  var state = { topics: [], minDiff: 0, maxDiff: 99999, status: 'all', search: '' };
+
+  /* ---------- helpers ---------- */
+  function has(a, v) { return a.indexOf(v) !== -1; }
+  function lvl(d) { return d <= 1000 ? 1 : (d <= 1400 ? 2 : 3); }
+  function lvlText(d) { return d <= 1000 ? '入门' : (d <= 1400 ? '基础' : '进阶'); }
+  function loadDone() { try { done = JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; }
+                        catch (e) { done = []; } }
+  function saveDone() { try { localStorage.setItem(LS_KEY, JSON.stringify(done)); } catch (e) {} }
+  function isDone(id) { return has(done, id); }
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'show';
+    setTimeout(function () { t.className = ''; }, 1600);
+  }
+
+  /* ---------- 构建筛选项 ---------- */
+  function buildTopicChips() {
+    var box = document.getElementById('topicChips');
+    while (box.firstChild) box.removeChild(box.firstChild);
+    var opts = SCHEMA_OPTIONS['类型'] || [];
+    state.topics = [];
+    for (var i = 0; i < opts.length; i++) {
+      (function (opt) {
+        var el = document.createElement('span');
+        el.className = 'chip on';
+        el.textContent = opt.text;
+        el.setAttribute('data-value', opt.id);
+        el.onclick = function () {
+          if (has(state.topics, opt.text)) {
+            state.topics = state.topics.filter(function (x) { return x !== opt.text; });
+            el.className = 'chip';
+          } else {
+            state.topics.push(opt.text);
+            el.className = 'chip on';
+          }
+          render();
+        };
+        box.appendChild(el);
+        state.topics.push(opt.text);
+      })(opts[i]);
+    }
+  }
+  function buildDiffSelects() {
+    DIFFS = [];
+    for (var i = 0; i < PROBLEMS.length; i++) {
+      var d = PROBLEMS[i].difficulty;
+      if (typeof d === 'number' && !has(DIFFS, d)) DIFFS.push(d);
+    }
+    DIFFS.sort(function (a, b) { return a - b; });
+    if (!DIFFS.length) return;
+    state.minDiff = DIFFS[0];
+    state.maxDiff = DIFFS[DIFFS.length - 1];
+    fillDiff('minDiff', state.minDiff);
+    fillDiff('maxDiff', state.maxDiff);
+  }
+  function fillDiff(id, sel) {
+    var el = document.getElementById(id), i;
+    while (el.firstChild) el.removeChild(el.firstChild);
+    for (i = 0; i < DIFFS.length; i++) {
+      var o = document.createElement('option');
+      o.value = DIFFS[i]; o.textContent = DIFFS[i];
+      if (DIFFS[i] === sel) o.selected = true;
+      el.appendChild(o);
+    }
+  }
+  function bindAll() {
+    var mn = document.getElementById('minDiff'), mx = document.getElementById('maxDiff');
+    mn.onchange = function () {
+      state.minDiff = parseInt(mn.value, 10);
+      if (state.minDiff > state.maxDiff) { mx.value = mn.value; state.maxDiff = state.minDiff; }
+      render();
+    };
+    mx.onchange = function () {
+      state.maxDiff = parseInt(mx.value, 10);
+      if (state.maxDiff < state.minDiff) { mn.value = mx.value; state.minDiff = state.maxDiff; }
+      render();
+    };
+    var presets = document.querySelectorAll('#presets .chip');
+    for (var i = 0; i < presets.length; i++) {
+      (function (ch) {
+        ch.onclick = function () {
+          state.minDiff = parseInt(ch.getAttribute('data-min'), 10);
+          state.maxDiff = parseInt(ch.getAttribute('data-max'), 10);
+          mn.value = state.minDiff; mx.value = state.maxDiff;
+          render();
+        };
+      })(presets[i]);
+    }
+    var segBtns = document.querySelectorAll('#statusSeg button');
+    for (var j = 0; j < segBtns.length; j++) {
+      (function (b) {
+        b.onclick = function () {
+          for (var k = 0; k < segBtns.length; k++) segBtns[k].className = '';
+          b.className = 'on'; state.status = b.getAttribute('data-v'); render();
+        };
+      })(segBtns[j]);
+    }
+    var s = document.getElementById('search');
+    s.oninput = function () { state.search = (s.value || '').trim().toLowerCase(); render(); };
+
+    document.getElementById('exportBtn').onclick = function () {
+      var blob = new Blob([JSON.stringify(done)], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'done_problems.json'; a.click();
+      toast('已导出 ' + done.length + ' 条已做标记');
+    };
+    document.getElementById('importBtn').onclick = function () {
+      document.getElementById('importFile').click();
+    };
+    document.getElementById('importFile').onchange = function (e) {
+      var f = e.target.files[0]; if (!f) return;
+      var r = new FileReader();
+      r.onload = function () {
+        try { done = JSON.parse(r.result) || []; saveDone(); render(); toast('已导入 ' + done.length + ' 条标记'); }
+        catch (err) { toast('导入失败：文件格式错误'); }
+      };
+      r.readAsText(f);
+    };
+    document.getElementById('resetBtn').onclick = function () {
+      if (!done.length) { toast('当前没有标记'); return; }
+      if (confirm('确定清空所有已做标记？')) { done = []; saveDone(); render(); toast('已清空标记'); }
+    };
+  }
+
+  /* ---------- 过滤 ---------- */
+  function filtered() {
+    var out = [], i;
+    for (i = 0; i < PROBLEMS.length; i++) {
+      var p = PROBLEMS[i];
+      if (!has(state.topics, p.topicZh)) continue;
+      if (p.difficulty < state.minDiff || p.difficulty > state.maxDiff) continue;
+      if (state.status === 'done' && !isDone(p.id)) continue;
+      if (state.status === 'todo' && isDone(p.id)) continue;
+      if (state.search) {
+        var hay = (p.id + ' ' + p.focus).toLowerCase();
+        if (hay.indexOf(state.search) === -1) continue;
+      }
+      out.push(p);
+    }
+    return out;
+  }
+
+  /* ---------- 渲染（DOM API，无 innerHTML 拼变量） ---------- */
+  function buildCard(tpl, p) {
+    var lv = lvl(p.difficulty);
+    // 只认「全数字 PID」才可点 —— 与占位符文案解耦（文案改过：未上传 → 无PID）
+    var linkable = /^[0-9]+$/.test(String(p.pid || ''));
+    var card = tpl.content.firstElementChild.cloneNode(true);
+    card.className = 'card card--lv' + lv + (isDone(p.id) ? ' done' : '') + (linkable ? ' link' : '');
+    card.querySelector('[data-field="编号"]').textContent = '#' + p.id;
+
+    var pidv = card.querySelector('[data-field="平台PID"]');
+    while (pidv.firstChild) pidv.removeChild(pidv.firstChild);
+    if (linkable) {
+      var a = document.createElement('a');
+      a.href = OJ_BASE + encodeURIComponent(p.pid);
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = 'PID ' + p.pid + ' ↗';
+      pidv.appendChild(a);
+    } else {
+      pidv.textContent = p.pid || '无PID';
+    }
+
+    card.querySelector('[data-field="考点"]').textContent = p.focus;
+    var badge = card.querySelector('[data-field="难度"]');
+    badge.className = 'badge b-lv' + lv;
+    badge.textContent = p.difficulty + ' · ' + lvlText(p.difficulty);
+
+    var chk = card.querySelector('.chk');
+    chk.checked = isDone(p.id);
+    chk.onchange = function (e) {
+      if (e.target.checked) { if (!has(done, p.id)) done.push(p.id); }
+      else { done = done.filter(function (x) { return x !== p.id; }); }
+      saveDone(); render();
+    };
+    if (linkable) {
+      card.onclick = function (e) {
+        var tg = e.target;
+        if ((tg.className && String(tg.className).indexOf('chk') !== -1) ||
+            (tg.tagName && tg.tagName === 'A') ||
+            (tg.parentNode && tg.parentNode.tagName === 'A')) return;
+        window.open(OJ_BASE + encodeURIComponent(p.pid), '_blank');
+      };
+    }
+    return card;
+  }
+  function wireCollapse(sec) {
+    var coll = sec.querySelector('.coll'), cs = sec.querySelector('.cards');
+    coll.onclick = function () {
+      if (cs.className.indexOf('hidden') === -1) { cs.className = 'cards hidden'; coll.textContent = '▸'; }
+      else { cs.className = 'cards'; coll.textContent = '▾'; }
+    };
+  }
+  function render() {
+    var list = filtered();
+    var board = document.getElementById('board');
+    while (board.firstChild) board.removeChild(board.firstChild);
+    if (!list.length) {
+      var e = document.createElement('div'); e.className = 'empty';
+      e.textContent = '没有符合条件的题目'; board.appendChild(e);
+    }
+    var order = [], groups = {}, i;
+    var opts = SCHEMA_OPTIONS['类型'] || [];
+    for (i = 0; i < opts.length; i++) order.push(opts[i].text);
+    for (i = 0; i < list.length; i++) {
+      var t = list[i].topicZh;
+      if (!groups[t]) groups[t] = [];
+      groups[t].push(list[i]);
+    }
+    var tplSec = document.getElementById('tpl-section');
+    var tplCard = document.getElementById('tpl-card');
+    for (var oi = 0; oi < order.length; oi++) {
+      var key = order[oi], arr = groups[key];
+      if (!arr || !arr.length) continue;
+      var doneN = 0;
+      for (i = 0; i < arr.length; i++) if (isDone(arr[i].id)) doneN++;
+      var sec = tplSec.content.firstElementChild.cloneNode(true);
+      sec.querySelector('[data-field="类型"]').textContent = key;
+      sec.querySelector('.meta').textContent = doneN + ' / ' + arr.length + ' 已做';
+      var cardsBox = sec.querySelector('.cards');
+      for (i = 0; i < arr.length; i++) cardsBox.appendChild(buildCard(tplCard, arr[i]));
+      wireCollapse(sec);
+      board.appendChild(sec);
+    }
+    var total = PROBLEMS.length;
+    var pc = document.getElementById('pcount');
+    pc.textContent = '已做 ' + done.length + ' / ' + total + ' 题';
+    document.getElementById('bar').style.width = total ? (done.length / total * 100) + '%' : '0%';
+  }
+
+  /* ---------- 数据加载 ---------- */
+  function useRows(rows) {
+    PROBLEMS = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      PROBLEMS.push({
+        id: r['编号'],
+        topicZh: r['类型'],
+        focus: r['考点'],
+        difficulty: r['难度'],
+        pid: r['平台PID']
+      });
+    }
+    PROBLEMS.sort(function (a, b) { return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0); });
+    buildDiffSelects();
+    render();
+  }
+  function loadData(startCursor, acc, guard) {
+    var db = window.__SMART_PAGE__ && window.__SMART_PAGE__.database;
+    if (!db) return;
+    acc = acc || []; guard = guard || 0;
+    if (guard > 100) { useRows(acc); return; }
+    db.query({
+      databaseId: DATABASE_ID,
+      sorts: [{ property: '难度', direction: 'ascending' }],
+      pageSize: 200,
+      startCursor: startCursor
+    }).then(function (result) {
+      var got = result.results || [];
+      acc = acc.concat(got);
+      var next = result.nextCursor;
+      if (result.hasMore && next && next !== startCursor && got.length) {
+        loadData(next, acc, guard + 1);
+      } else {
+        useRows(acc);
+      }
+    }).catch(function (err) {
+      console.error('[database] 数据加载失败:', err);
+      document.getElementById('pcount').textContent = '数据加载失败，请稍后重试';
+    });
+  }
+
+  function boot() {
+    loadDone();
+    var db = window.__SMART_PAGE__ && window.__SMART_PAGE__.database;
+    if (!db) {
+      document.getElementById('pcount').textContent = '未检测到数据 SDK（请在资料库中打开本页）';
+      return;
+    }
+    try {
+      db.getSchema({ databaseId: DATABASE_ID }).then(function (schema) {
+        var props = (schema && schema.properties) || [];
+        for (var i = 0; i < props.length; i++) {
+          var f = props[i];
+          if ((f.type === 'select' || f.type === 'multi_select') && f.config && f.config.options) {
+            SCHEMA_OPTIONS[f.name] = f.config.options;
+          }
+        }
+        buildTopicChips(); bindAll(); loadData();
+      }).catch(function (err) {
+        console.error('[database] schema 加载失败:', err);
+        buildTopicChips(); bindAll(); loadData();
+      });
+    } catch (e) {
+      console.error('[database] 初始化异常:', e);
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>

@@ -112,6 +112,16 @@ def main():
 
     print('\n结果：成功 %d / 失败 %d / 累计已传 %d' % (ok, fail, len(done)), flush=True)
 
+    # 上传成功后自动同步看板（把 uploaded_pids.txt 里的新 PID 回填进数据表）。
+    # dry-run 不写库；同步失败不影响上传结果。
+    if not dry and ok:
+        print('\n── 同步看板（回填 PID）──', flush=True)
+        try:
+            subprocess.run([sys.executable, 'sync_dashboard.py'], check=False)
+        except Exception as e:
+            print('  看板同步失败（不影响上传）：%s' % e, flush=True)
+
+
 
 if __name__ == '__main__':
     main()
