@@ -77,3 +77,4 @@ batch_checkpoint.json
 
 # ─── WorkBuddy 项目级配置（技能/记忆，含本机专属路径，不入库）───
 .workbuddy/
+j_batch.log
