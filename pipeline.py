@@ -341,6 +341,28 @@ def tool_compile_cpp(problem_dir: Path, source: str, output: str) -> dict:
 # tool_run_solution 里的「标程耗时」。此值仅作防磁盘爆/异常的兜底。
 MAX_TESTCASE_BYTES = int(100 * 1024 * 1024)
 
+# 大测试点「标记」阈值（黄sir 2026-09-29 定）：不拦，只标记。
+# 真正该看的是运行时内存与耗时，文件大小本身不判死；但 >3MB 的单个测试点
+# 在上传平台 + 提交标程时要特殊关注（判题机瞬时负载 / 传输耗时）。
+LARGE_TESTCASE_MB = 3.0
+
+
+def scan_large_testcases(problem_dir: Path, threshold_mb: float = LARGE_TESTCASE_MB) -> list:
+    """扫描 inputs/outputs，返回超阈值的文件描述列表（如 'inputs/02.in(3.31MB)'）。
+
+    无超阈值文件时返回空列表。供 final_check 打标记、门禁告警、上传/提交时提示共用。
+    """
+    found = []
+    limit = threshold_mb * 1024 * 1024
+    for sub in ("inputs", "outputs"):
+        d = problem_dir / sub
+        if not d.exists():
+            continue
+        for f in sorted(d.iterdir()):
+            if f.is_file() and f.stat().st_size > limit:
+                found.append("%s/%s(%.2fMB)" % (sub, f.name, f.stat().st_size / 1024 / 1024))
+    return found
+
 
 @tool("generate_test_data", "运行已编译的 generator 生成测试数据。generator 必须先编译为 bin/generator。", {
     "type": "object",
@@ -1136,6 +1158,12 @@ def tool_final_check(problem_dir: Path, waive_bounds: Optional[list] = None) -> 
             "samples": sample_result,
             "data_strength": {"passed": True, "naive_tle_on": strength.get("naive_tle_on", [])},
         }
+        # hook：单个测试点 >3MB 打标记（不拦）。真正该看的是运行时内存/耗时；
+        # 标记供「上传平台 + 提交标程」时特殊关注。每次重算，避免陈旧标记残留。
+        meta.pop("large_testcase", None)
+        _large = scan_large_testcases(base)
+        if _large:
+            meta["large_testcase"] = {"threshold_mb": LARGE_TESTCASE_MB, "files": _large}
         (base / "problem.yaml").write_text(
             yaml.safe_dump(meta, allow_unicode=True, sort_keys=False), encoding="utf-8")
 

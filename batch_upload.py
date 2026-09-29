@@ -15,6 +15,8 @@ import subprocess
 import sys
 import winreg
 
+import yaml
+
 EXCLUDE = {'ci_v7_smoke', 'example_sum', 'failed', 'smoke_wb', 'cspj_mock1'}
 LOG = pathlib.Path('uploaded_pids.txt')
 
@@ -71,6 +73,34 @@ def extract_pid(out):
     return m.group(1) if m else None
 
 
+def warn_large_testcases(problems):
+    """列出待传题目里带大测试点（problem.yaml 的 large_testcase 标记）的，供特殊关注。
+
+    标记由出题流程的 final_check 写入（单个测试点 >3MB）。上传时提示，避免
+    在判题机瞬时负载 / 传输耗时上踩坑（黄sir 2026-09-29）。
+    """
+    large = []
+    for d in problems:
+        meta_path = d / 'problem.yaml'
+        if not meta_path.exists():
+            continue
+        try:
+            meta = yaml.safe_load(meta_path.read_text(encoding='utf-8')) or {}
+        except Exception:
+            continue
+        lt = meta.get('large_testcase')
+        if lt:
+            large.append((d.name, lt.get('files', [])))
+    if large:
+        print('\n⚠ 以下 %d 题含 >3MB 大测试点，上传时留意判题机负载与传输耗时：' % len(large),
+              flush=True)
+        for name, files in large:
+            print('    %-28s %s' % (name, ', '.join(files[:3]) or '(见 problem.yaml)'),
+                  flush=True)
+        print(flush=True)
+    return large
+
+
 def main():
     argv = sys.argv[1:]
     dry = '--dry-run' in argv
@@ -87,6 +117,7 @@ def main():
     problems = [d for d in list_problems() if d.name not in done]
     mode = 'dry-run' if dry else ('真传+启用' if enable else '真传')
     print('已传 %d 题，本次待%s %d 题' % (len(done), mode, len(problems)), flush=True)
+    warn_large_testcases(problems)
 
     ok = fail = 0
     for i, d in enumerate(problems, 1):

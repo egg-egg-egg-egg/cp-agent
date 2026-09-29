@@ -35,7 +35,8 @@ except ImportError:  # pragma: no cover - 缺依赖时给明确指引，而不�
         "请用项目 venv 运行：.venv/Scripts/python.exe problem_gate.py ..."
     )
 
-MAX_TESTCASE_BYTES = int(1.2 * 1024 * 1024)   # 与 pipeline.py 保持一致
+# 单点大小不再设硬上限（黄sir 2026-09-29）：平台能承受大文件，真正该看运行时内存/耗时。
+# 仅对 >3MB 的测试点告警（见 _check_one 的 F10），阈值在那一处就地定义。
 REQUIRED_FILES = ["problem.md", "problem.yaml", "solution.cpp",
                   "generator.cpp", "validator.cpp", "naive.cpp"]
 CJK_MIN, CJK_RATIO_MIN = 80, 0.35              # 与 agent._validate_problem_md_chinese 一致
@@ -179,16 +180,23 @@ def check(problem_dir, expect_name=None):
         fail.append("cases(%d) 与 inputs(%d) 数量不一致" % (meta["cases_count"], len(ins)))
     info["inputs"] = len(ins)
 
-    # F10 单点大小
+    # F10 单点大小 —— 不再硬失败（黄sir 2026-09-29 定）。
+    # 平台优化后大文件本身不是问题（12.92MB 判题仅 256ms），真正该看的是运行时
+    # 内存/耗时；这里只对 >3MB 的测试点**告警**，提示上传/提交时留意。
+    LARGE_MB = 3.0
     biggest = 0
+    large = []
     for f in ins + outs:
         sub = "inputs" if f.endswith(".in") else "outputs"
         sz = os.path.getsize(os.path.join(d, sub, f))
         biggest = max(biggest, sz)
-        if sz > MAX_TESTCASE_BYTES:
-            fail.append("测试点 %s/%s = %.2fMB 超过 %.1fMB 上限"
-                        % (sub, f, sz / 1024 / 1024, MAX_TESTCASE_BYTES / 1024 / 1024))
+        if sz > LARGE_MB * 1024 * 1024:
+            large.append("%s/%s(%.2fMB)" % (sub, f, sz / 1024 / 1024))
     info["max_testcase_mb"] = round(biggest / 1024 / 1024, 2)
+    if large:
+        info["large_testcases"] = large[:5]
+        warn.append("大测试点 %d 个（>%.0fMB）：%s —— 上传/提交标程时留意判题负载"
+                    % (len(large), LARGE_MB, ", ".join(large[:3])))
 
     # F11 题面中文
     md_path = os.path.join(d, "problem.md")

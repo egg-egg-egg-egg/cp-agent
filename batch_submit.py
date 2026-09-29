@@ -15,7 +15,8 @@ import requests
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from integrations import hustoj  # noqa: E402
 
-MAX_CASE_BYTES = 100 * 1024 * 1024  # 平台已能承受大测试点（实测 12.92MB 仅 256ms），阈值实质解除
+MAX_CASE_BYTES = 100 * 1024 * 1024  # 极端兜底（平台已能承受大测试点，几乎不会触发）
+LARGE_TESTCASE_BYTES = 3 * 1024 * 1024  # >3MB 只提醒不跳过（黄sir 2026-09-29）
 SUBMIT_LOG = pathlib.Path('submitted_pids.txt')  # 已提交过标程的题（避免重复提交）
 
 
@@ -97,6 +98,7 @@ def main():
     submitted = load_submitted()
     ok = skip_big = skip_nosol = fail = skip_done = 0
     big_list = []
+    large_list = []
     for name, pid in sorted(up.items()):
         if name in submitted:
             skip_done += 1
@@ -113,6 +115,8 @@ def main():
             skip_big += 1
             big_list.append((name, pid, maxin / 1024 / 1024))
             continue
+        if maxin > LARGE_TESTCASE_BYTES:  # >3MB：提醒但仍提交（真正看运行时内存/耗时）
+            large_list.append((name, pid, maxin / 1024 / 1024))
         sol = d / 'solution.cpp'
         if not sol.exists():
             skip_nosol += 1
@@ -157,6 +161,10 @@ def main():
     print('\n超阈值未提交的题（%d）:' % len(big_list), flush=True)
     for name, pid, sz in sorted(big_list, key=lambda x: -x[2]):
         print('  %-28s pid=%s  %.2fMB' % (name, pid, sz), flush=True)
+    if large_list:
+        print('\n⚠ 含 >3MB 大测试点（已提交，留意判题机负载）：', flush=True)
+        for name, pid, sz in sorted(large_list, key=lambda x: -x[2]):
+            print('  %-28s pid=%s  %.2fMB' % (name, pid, sz), flush=True)
     return 0
 
 
