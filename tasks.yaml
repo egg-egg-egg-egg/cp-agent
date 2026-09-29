@@ -151,7 +151,7 @@ problems:
   - {id: "100", topic: constructive,      focus: "构造判定-可行性分析",               difficulty: 1700, status: done, name: "constructive_1700_51"}
 
   # ── CSP-J T1/T2 专项（30 题，难度 600-1100）──────────────────
-  - {id: "J01", topic: simulation, focus: "计数模拟-按规则统计事件次数", difficulty: 600,  status: pending, name: ""}
+  - {id: "J01", topic: simulation, focus: "计数模拟-按规则统计事件次数", difficulty: 600,  status: done, name: "simulation_600_175"}
   - {id: "J02", topic: simulation, focus: "网格移动模拟-按指令走格子", difficulty: 700,  status: pending, name: ""}
   - {id: "J03", topic: simulation, focus: "时间模拟-逐秒推进状态", difficulty: 800,  status: pending, name: ""}
   - {id: "J04", topic: simulation, focus: "循环模拟-寻找状态周期", difficulty: 900,  status: pending, name: ""}
