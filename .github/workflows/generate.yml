@@ -29,6 +29,12 @@ name: Generate Problem
 # · Ubuntu 26 将于 2026-10-19 迁移，g++ 版本会变，由 Verify toolchain 步骤兜住
 
 on:
+  # 定时自动出题（黄sir 2026-10-02 采纳）：每 15 分钟取一个 pending 出题。
+  # 配合下方 concurrency 排队 ⇒ 自动串行跑完 pending 队列（一题约 5-8 分钟，
+  # 15 分钟间隔足够彼此错开）。队列清空后每次触发只做「无 pending」检查即退出，无害。
+  # ⚠️ 出题跑完后如不想再被空触发，到 Actions 页面 Disable 本 workflow 即可。
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       task_id:
@@ -83,6 +89,12 @@ on:
         description: "导出格式：luogu / hydro / polygon / all；留空不导出"
         required: false
         default: ""
+
+# 同一时刻只允许一个出题 run：定时触发密集时其余自动排队（cancel-in-progress=false），
+# 避免多个 job 并发改 tasks.yaml 造成 rebase 冲突。
+concurrency:
+  group: generate-problem
+  cancel-in-progress: false
 
 jobs:
   generate:
