@@ -160,7 +160,7 @@ problems:
   - {id: "J07", topic: simulation, focus: "规则模拟-数组上反复操作", difficulty: 900,  status: done, name: "simulation_900_209"}
   - {id: "J08", topic: math, focus: "进制转换-任意进制互转", difficulty: 600,  status: pending, name: ""}
   - {id: "J09", topic: math, focus: "位运算-二进制位统计", difficulty: 700,  status: done, name: "math_700_211"}
-  - {id: "J10", topic: math, focus: "找规律-数列求通项", difficulty: 800,  status: pending, name: ""}
+  - {id: "J10", topic: math, focus: "找规律-数列求通项", difficulty: 800,  status: done, name: "math_800_212"}
   - {id: "J11", topic: math, focus: "取模运算-循环取模问题", difficulty: 900,  status: done, name: "math_900_213"}
   - {id: "J12", topic: math, focus: "约数与gcd-最大公约数应用", difficulty: 1000, status: done, name: "math_1000_214"}
   - {id: "J13", topic: math, focus: "计数原理-简单排列组合", difficulty: 1100, status: done, name: "math_1100_215"}
