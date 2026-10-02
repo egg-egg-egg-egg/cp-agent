@@ -99,7 +99,12 @@ def list_success_runs(token, limit):
             "--json", "databaseId,conclusion,createdAt,displayTitle"], token)
     if r.returncode != 0:
         raise RuntimeError("gh run list 失败：%s" % (r.stderr or r.stdout)[:400])
-    return [x for x in json.loads(r.stdout or "[]") if x.get("conclusion") == "success"]
+    # ⚠️ 不能只认 success：并行出题时 job 会因 `mark-done` 回写 tasks.yaml 失败
+    # （相邻行 rebase 冲突）而被标记为 failure，但 **Generate 步骤是成功的、artifact
+    # 也在**（题目完整）。这类 run 必须一并下载，否则漏题（2026-10-02 实测漏 15 题）。
+    # 真正的判据是「有没有 artifact」，下游下载失败会自动跳过。
+    return [x for x in json.loads(r.stdout or "[]")
+            if x.get("conclusion") in ("success", "failure")]
 
 
 # ─────────────────────────── 状态 ───────────────────────────
