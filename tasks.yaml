@@ -172,7 +172,7 @@ problems:
   - {id: "J19", topic: greedy, focus: "区间贪心-选择不重叠区间", difficulty: 1000, status: pending, name: ""}
   - {id: "J20", topic: greedy, focus: "排序贪心-最小代价配对", difficulty: 1000, status: pending, name: ""}
   - {id: "J21", topic: greedy, focus: "相邻贪心-连续段合并代价", difficulty: 1100, status: pending, name: ""}
-  - {id: "J22", topic: greedy, focus: "基础贪心-按比例分配", difficulty: 900,  status: pending, name: ""}
+  - {id: "J22", topic: greedy, focus: "基础贪心-按比例分配", difficulty: 900,  status: done, name: "greedy_900_224"}
   - {id: "J23", topic: binary_search, focus: "二分查找-有序序列定位", difficulty: 700,  status: pending, name: ""}
   - {id: "J24", topic: binary_search, focus: "二分答案-最小可行值", difficulty: 1000, status: pending, name: ""}
   - {id: "J25", topic: binary_search, focus: "二分+数学-方程求解", difficulty: 1100, status: pending, name: ""}
