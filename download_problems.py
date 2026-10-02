@@ -184,7 +184,9 @@ def main():
         tmp = tempfile.mkdtemp(prefix="dl_%s_" % rid)
         raw = os.path.join(tmp, "raw")
         try:
-            dr = gh(["run", "download", rid, "-R", REPO, "-n", "problem-%s" % rid, "-D", raw], token)
+            # ⚠️ 不要加 `-R REPO`：在仓库目录内运行时本就不需要，而加上它会让
+            # gh 变慢约 11 倍（实测同一 artifact：8.9s → 98s，2026-10-02）。
+            dr = gh(["run", "download", rid, "-n", "problem-%s" % rid, "-D", raw], token)
             if dr.returncode != 0:
                 print("  无 artifact 或下载失败，跳过（%s）" % (dr.stderr or "").strip()[:120])
                 mark_processed(rid)          # 别反复重试

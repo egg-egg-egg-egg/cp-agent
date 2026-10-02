@@ -68,7 +68,7 @@ def has_artifact(env, run_id):
 def extract_from_log(env, run_id):
     """从 job 日志里捞 (task_id, problem_name)。返回 None 表示没捞到。"""
     log = gh(["run", "view", str(run_id), "--log"], env, timeout=300)
-    m_id = re.search(r"IN_TASK_ID:\s*(J\d+)", log)
+    m_id = re.search(r"IN_TASK_ID:\s*([A-Z]+\d+)", log)
     m_name = re.search(r"name=([a-z_0-9]+_\d+_\d+)", log)
     if m_id and m_name:
         return m_id.group(1), m_name.group(1)
