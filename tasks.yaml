@@ -198,7 +198,7 @@ problems:
   - {id: "K13", topic: math, focus: "分类讨论-按条件分情况", difficulty: 700, status: done, name: "math_700_245"}
   - {id: "K14", topic: math, focus: "整除性质-约数与倍数", difficulty: 700, status: done, name: "math_700_246"}
   - {id: "K15", topic: math, focus: "公式推导-数学化简求值", difficulty: 800, status: done, name: "math_800_247"}
-  - {id: "K16", topic: math, focus: "周期规律-求循环节", difficulty: 700, status: pending, name: ""}
+  - {id: "K16", topic: math, focus: "周期规律-求循环节", difficulty: 700, status: done, name: "math_700_248"}
   - {id: "K17", topic: math, focus: "简单计数原理-排列组合", difficulty: 800, status: done, name: "math_800_249"}
   - {id: "K18", topic: math, focus: "数值边界-精度与范围处理", difficulty: 600, status: done, name: "math_600_250"}
   - {id: "K19", topic: math, focus: "进制转换-任意进制互转", difficulty: 600, status: pending, name: ""}
