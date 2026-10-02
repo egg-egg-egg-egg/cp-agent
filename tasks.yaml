@@ -184,7 +184,7 @@ problems:
 
   # ── CSP-J T1 专项（30 题，对标复赛第一题，难度 ≤800）─────────
   - {id: "K01", topic: simulation, focus: "计数模拟-按规则统计发生次数", difficulty: 500, status: done, name: "simulation_500_233"}
-  - {id: "K02", topic: simulation, focus: "单步流程模拟-按指令顺序执行", difficulty: 600, status: pending, name: ""}
+  - {id: "K02", topic: simulation, focus: "单步流程模拟-按指令顺序执行", difficulty: 600, status: done, name: "simulation_600_234"}
   - {id: "K03", topic: simulation, focus: "周期模拟-判定状态循环", difficulty: 700, status: pending, name: ""}
   - {id: "K04", topic: simulation, focus: "网格模拟-按指令走格子", difficulty: 600, status: pending, name: ""}
   - {id: "K05", topic: simulation, focus: "状态变换模拟-按规则迭代", difficulty: 700, status: done, name: "simulation_700_237"}
