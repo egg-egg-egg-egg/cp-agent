@@ -169,7 +169,7 @@ problems:
   - {id: "J16", topic: string, focus: "字符串解析-按分隔符拆解", difficulty: 800,  status: done, name: "string_800_218"}
   - {id: "J17", topic: string, focus: "回文串-判定与构造", difficulty: 1000, status: pending, name: ""}
   - {id: "J18", topic: string, focus: "字符串模拟-密码/编码规则", difficulty: 900,  status: done, name: "string_900_220"}
-  - {id: "J19", topic: greedy, focus: "区间贪心-选择不重叠区间", difficulty: 1000, status: pending, name: ""}
+  - {id: "J19", topic: greedy, focus: "区间贪心-选择不重叠区间", difficulty: 1000, status: done, name: "greedy_1000_221"}
   - {id: "J20", topic: greedy, focus: "排序贪心-最小代价配对", difficulty: 1000, status: done, name: "greedy_1000_222"}
   - {id: "J21", topic: greedy, focus: "相邻贪心-连续段合并代价", difficulty: 1100, status: done, name: "greedy_1100_223"}
   - {id: "J22", topic: greedy, focus: "基础贪心-按比例分配", difficulty: 900,  status: done, name: "greedy_900_224"}
