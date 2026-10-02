@@ -154,7 +154,7 @@ problems:
   - {id: "J01", topic: simulation, focus: "计数模拟-按规则统计事件次数", difficulty: 600,  status: done, name: "simulation_600_175"}
   - {id: "J02", topic: simulation, focus: "网格移动模拟-按指令走格子", difficulty: 700,  status: done, name: "simulation_700_176"}
   - {id: "J03", topic: simulation, focus: "时间模拟-逐秒推进状态", difficulty: 800,  status: done, name: "simulation_800_203"}
-  - {id: "J04", topic: simulation, focus: "循环模拟-寻找状态周期", difficulty: 900,  status: pending, name: ""}
+  - {id: "J04", topic: simulation, focus: "循环模拟-寻找状态周期", difficulty: 900,  status: done, name: "simulation_900_206"}
   - {id: "J05", topic: simulation, focus: "队列模拟-排队与出队调度", difficulty: 1000, status: pending, name: ""}
   - {id: "J06", topic: simulation, focus: "多步骤流程模拟-分阶段推进", difficulty: 1100, status: pending, name: ""}
   - {id: "J07", topic: simulation, focus: "规则模拟-数组上反复操作", difficulty: 900,  status: done, name: "simulation_900_209"}
