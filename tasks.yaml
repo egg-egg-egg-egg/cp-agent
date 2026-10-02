@@ -186,7 +186,7 @@ problems:
   - {id: "K01", topic: simulation, focus: "计数模拟-按规则统计发生次数", difficulty: 500, status: done, name: "simulation_500_233"}
   - {id: "K02", topic: simulation, focus: "单步流程模拟-按指令顺序执行", difficulty: 600, status: done, name: "simulation_600_234"}
   - {id: "K03", topic: simulation, focus: "周期模拟-判定状态循环", difficulty: 700, status: done, name: "simulation_700_235"}
-  - {id: "K04", topic: simulation, focus: "网格模拟-按指令走格子", difficulty: 600, status: pending, name: ""}
+  - {id: "K04", topic: simulation, focus: "网格模拟-按指令走格子", difficulty: 600, status: done, name: "simulation_600_236"}
   - {id: "K05", topic: simulation, focus: "状态变换模拟-按规则迭代", difficulty: 700, status: done, name: "simulation_700_237"}
   - {id: "K06", topic: simulation, focus: "队列模拟-入队出队过程", difficulty: 700, status: done, name: "simulation_700_238"}
   - {id: "K07", topic: simulation, focus: "数组反复操作-多轮变换", difficulty: 800, status: done, name: "simulation_800_239"}
