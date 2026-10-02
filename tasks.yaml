@@ -156,7 +156,7 @@ problems:
   - {id: "J03", topic: simulation, focus: "时间模拟-逐秒推进状态", difficulty: 800,  status: done, name: "simulation_800_203"}
   - {id: "J04", topic: simulation, focus: "循环模拟-寻找状态周期", difficulty: 900,  status: done, name: "simulation_900_206"}
   - {id: "J05", topic: simulation, focus: "队列模拟-排队与出队调度", difficulty: 1000, status: pending, name: ""}
-  - {id: "J06", topic: simulation, focus: "多步骤流程模拟-分阶段推进", difficulty: 1100, status: pending, name: ""}
+  - {id: "J06", topic: simulation, focus: "多步骤流程模拟-分阶段推进", difficulty: 1100, status: done, name: "simulation_1100_208"}
   - {id: "J07", topic: simulation, focus: "规则模拟-数组上反复操作", difficulty: 900,  status: done, name: "simulation_900_209"}
   - {id: "J08", topic: math, focus: "进制转换-任意进制互转", difficulty: 600,  status: done, name: "math_600_210"}
   - {id: "J09", topic: math, focus: "位运算-二进制位统计", difficulty: 700,  status: done, name: "math_700_211"}
