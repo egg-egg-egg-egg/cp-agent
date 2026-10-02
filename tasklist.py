@@ -63,9 +63,14 @@ def cmd_next(args) -> int:
             _emit({"empty": "true", "reason": f"id {args.id} 已是 done"}, fmt)
             return 1
     else:
+        # ⚠️ 空串 topic 必须按「不筛选」处理：CI 里 `--topic "$IN_TOPIC_FILTER"` 在
+        # 用户未指定时传的是**空字符串**而不是 None。若按 `args.topic is None` 判，
+        # 条件会退化成「topic 必须等于空串」⇒ 过滤掉所有题、返回「没有 pending 任务」，
+        # 而实际 pending 一堆（2026-10-02 踩过：批量触发全部空转）。
+        want_topic = args.topic or None
         for t in tasks:
             if t.get("status") == "pending" and (
-                    args.topic is None or t.get("topic") == args.topic):
+                    want_topic is None or t.get("topic") == want_topic):
                 target = t
                 break
         if target is None:
