@@ -181,3 +181,35 @@ problems:
   - {id: "J28", topic: bfs_dfs, focus: "DFS回溯-方案枚举", difficulty: 1100, status: done, name: "bfs_dfs_1100_230"}
   - {id: "J29", topic: data_structure, focus: "栈应用-括号匹配校验", difficulty: 900,  status: done, name: "data_structure_900_231"}
   - {id: "J30", topic: data_structure, focus: "桶排序-值域计数排序", difficulty: 700,  status: done, name: "data_structure_700_232"}
+
+  # ── CSP-J T1 专项（30 题，对标复赛第一题，难度 ≤800）─────────
+  - {id: "K01", topic: simulation, focus: "计数模拟-按规则统计发生次数", difficulty: 500, status: pending, name: ""}
+  - {id: "K02", topic: simulation, focus: "单步流程模拟-按指令顺序执行", difficulty: 600, status: pending, name: ""}
+  - {id: "K03", topic: simulation, focus: "周期模拟-判定状态循环", difficulty: 700, status: pending, name: ""}
+  - {id: "K04", topic: simulation, focus: "网格模拟-按指令走格子", difficulty: 600, status: pending, name: ""}
+  - {id: "K05", topic: simulation, focus: "状态变换模拟-按规则迭代", difficulty: 700, status: pending, name: ""}
+  - {id: "K06", topic: simulation, focus: "队列模拟-入队出队过程", difficulty: 700, status: pending, name: ""}
+  - {id: "K07", topic: simulation, focus: "数组反复操作-多轮变换", difficulty: 800, status: pending, name: ""}
+  - {id: "K08", topic: simulation, focus: "时间推进模拟-逐时刻更新", difficulty: 700, status: pending, name: ""}
+  - {id: "K09", topic: simulation, focus: "分阶段流程模拟-多步骤串联", difficulty: 800, status: pending, name: ""}
+  - {id: "K10", topic: simulation, focus: "模拟+溢出边界-数值范围判断", difficulty: 800, status: pending, name: ""}
+  - {id: "K11", topic: math, focus: "找规律-数列求通项", difficulty: 600, status: pending, name: ""}
+  - {id: "K12", topic: math, focus: "数学思维-取模循环问题", difficulty: 700, status: pending, name: ""}
+  - {id: "K13", topic: math, focus: "分类讨论-按条件分情况", difficulty: 700, status: pending, name: ""}
+  - {id: "K14", topic: math, focus: "整除性质-约数与倍数", difficulty: 700, status: pending, name: ""}
+  - {id: "K15", topic: math, focus: "公式推导-数学化简求值", difficulty: 800, status: pending, name: ""}
+  - {id: "K16", topic: math, focus: "周期规律-求循环节", difficulty: 700, status: pending, name: ""}
+  - {id: "K17", topic: math, focus: "简单计数原理-排列组合", difficulty: 800, status: pending, name: ""}
+  - {id: "K18", topic: math, focus: "数值边界-精度与范围处理", difficulty: 600, status: pending, name: ""}
+  - {id: "K19", topic: math, focus: "进制转换-任意进制互转", difficulty: 600, status: pending, name: ""}
+  - {id: "K20", topic: math, focus: "二进制分解-按位拆分求和", difficulty: 700, status: pending, name: ""}
+  - {id: "K21", topic: math, focus: "位运算性质-异或与或应用", difficulty: 800, status: pending, name: ""}
+  - {id: "K22", topic: math, focus: "位统计-二进制中1的个数", difficulty: 700, status: pending, name: ""}
+  - {id: "K23", topic: data_structure, focus: "频次统计-元素出现次数", difficulty: 500, status: pending, name: ""}
+  - {id: "K24", topic: data_structure, focus: "桶计数-值域范围统计", difficulty: 600, status: pending, name: ""}
+  - {id: "K25", topic: data_structure, focus: "条件计数-满足条件统计", difficulty: 700, status: pending, name: ""}
+  - {id: "K26", topic: data_structure, focus: "区间计数-按范围分组统计", difficulty: 700, status: pending, name: ""}
+  - {id: "K27", topic: data_structure, focus: "去重计数-不同元素个数", difficulty: 600, status: pending, name: ""}
+  - {id: "K28", topic: string, focus: "字符统计-字符频次统计", difficulty: 500, status: pending, name: ""}
+  - {id: "K29", topic: string, focus: "字符串模拟-按规则变换", difficulty: 700, status: pending, name: ""}
+  - {id: "K30", topic: string, focus: "子串统计-匹配出现次数", difficulty: 800, status: pending, name: ""}

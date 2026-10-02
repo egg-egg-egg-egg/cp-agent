@@ -1,0 +1,66 @@
+# CSP-J 复赛 T1 专项题库（30 题）
+#
+# 对标：CSP-J 复赛 2020-2024 第一题（连续五年均为 ★★☆☆☆ / 普及-）
+#   2024 扑克牌   计数排序(桶)        2023 小苹果   数学找规律
+#   2022 乘方     模拟+边界溢出       2021 分糖果   数学思维(取模)
+#   2020 优秀的拆分  位运算/进制
+#
+# 共性画像（设计依据）：
+#   ① 难度全部 ≤ 800（黄sir 定，比真题再低半档，面向刚入门学生）
+#   ② 考点仅四类：模拟 / 数学找规律 / 位运算进制 / 计数统计
+#   ③ 数据规模小，O(n)~O(n log n) 可过，不涉及复杂数据结构
+#   ④ 难点在「读懂规则 + 边界处理」，不在算法本身
+#
+# 用法（黄sir 确认后执行）：
+#   与 tasks.yaml 同格式，独立文件；合并时**必须文本追加**（tasks.yaml 有注释，
+#   禁止 yaml round-trip 改写，会丢注释 —— 2026-10-02 踩过）。
+#
+# ★★ 标程 freopen 约定（同 J 库）★★
+#   出题的 solution.cpp 一律纯 stdin/stdout（**绝不写 freopen**，pipeline 用
+#   `solution < input.in` 跑）；提交 OJ 时由 batch_submit.py 的 fio_base() 自动注入。
+#   ⚠️ batch_submit 用正则匹配 `int\s+main\s*\([^)]*\)\s*\{` 注入 —— 若标程写成
+#   其它形式（如宏定义 main）会漏注入 ⇒ OJ RE。已加警告，但设计时留意。
+
+problems:
+  # ── 模拟（10 题）★T1 主力 ────────────────────────────────────
+  - {id: "K01", topic: simulation, focus: "计数模拟-按规则统计发生次数", difficulty: 500, status: pending, name: ""}
+  - {id: "K02", topic: simulation, focus: "单步流程模拟-按指令顺序执行", difficulty: 600, status: pending, name: ""}
+  - {id: "K03", topic: simulation, focus: "周期模拟-判定状态循环", difficulty: 700, status: pending, name: ""}
+  - {id: "K04", topic: simulation, focus: "网格模拟-按指令走格子", difficulty: 600, status: pending, name: ""}
+  - {id: "K05", topic: simulation, focus: "状态变换模拟-按规则迭代", difficulty: 700, status: pending, name: ""}
+  - {id: "K06", topic: simulation, focus: "队列模拟-入队出队过程", difficulty: 700, status: pending, name: ""}
+  - {id: "K07", topic: simulation, focus: "数组反复操作-多轮变换", difficulty: 800, status: pending, name: ""}
+  - {id: "K08", topic: simulation, focus: "时间推进模拟-逐时刻更新", difficulty: 700, status: pending, name: ""}
+  - {id: "K09", topic: simulation, focus: "分阶段流程模拟-多步骤串联", difficulty: 800, status: pending, name: ""}
+  - {id: "K10", topic: simulation, focus: "模拟+溢出边界-数值范围判断", difficulty: 800, status: pending, name: ""}
+
+  # ── 数学/找规律（8 题）★T1 高频 ──────────────────────────────
+  - {id: "K11", topic: math, focus: "找规律-数列求通项", difficulty: 600, status: pending, name: ""}
+  - {id: "K12", topic: math, focus: "数学思维-取模循环问题", difficulty: 700, status: pending, name: ""}
+  - {id: "K13", topic: math, focus: "分类讨论-按条件分情况", difficulty: 700, status: pending, name: ""}
+  - {id: "K14", topic: math, focus: "整除性质-约数与倍数", difficulty: 700, status: pending, name: ""}
+  - {id: "K15", topic: math, focus: "公式推导-数学化简求值", difficulty: 800, status: pending, name: ""}
+  - {id: "K16", topic: math, focus: "周期规律-求循环节", difficulty: 700, status: pending, name: ""}
+  - {id: "K17", topic: math, focus: "简单计数原理-排列组合", difficulty: 800, status: pending, name: ""}
+  - {id: "K18", topic: math, focus: "数值边界-精度与范围处理", difficulty: 600, status: pending, name: ""}
+
+  # ── 位运算/进制（4 题）★T1 特色（对标 2020 优秀的拆分）────────
+  - {id: "K19", topic: math, focus: "进制转换-任意进制互转", difficulty: 600, status: pending, name: ""}
+  - {id: "K20", topic: math, focus: "二进制分解-按位拆分求和", difficulty: 700, status: pending, name: ""}
+  - {id: "K21", topic: math, focus: "位运算性质-异或与或应用", difficulty: 800, status: pending, name: ""}
+  - {id: "K22", topic: math, focus: "位统计-二进制中1的个数", difficulty: 700, status: pending, name: ""}
+
+  # ── 计数/统计（5 题）★T1 主力（对标 2024 扑克牌）─────────────
+  - {id: "K23", topic: data_structure, focus: "频次统计-元素出现次数", difficulty: 500, status: pending, name: ""}
+  - {id: "K24", topic: data_structure, focus: "桶计数-值域范围统计", difficulty: 600, status: pending, name: ""}
+  - {id: "K25", topic: data_structure, focus: "条件计数-满足条件统计", difficulty: 700, status: pending, name: ""}
+  - {id: "K26", topic: data_structure, focus: "区间计数-按范围分组统计", difficulty: 700, status: pending, name: ""}
+  - {id: "K27", topic: data_structure, focus: "去重计数-不同元素个数", difficulty: 600, status: pending, name: ""}
+
+  # ── 字符串（3 题）★T1 备选 ─────────────────────────────────
+  - {id: "K28", topic: string, focus: "字符统计-字符频次统计", difficulty: 500, status: pending, name: ""}
+  - {id: "K29", topic: string, focus: "字符串模拟-按规则变换", difficulty: 700, status: pending, name: ""}
+  - {id: "K30", topic: string, focus: "子串统计-匹配出现次数", difficulty: 800, status: pending, name: ""}
+
+# 难度分布：500×3 / 600×7 / 700×13 / 800×7（共 30 题，全部 ≤800）
+# 考点分布：模拟 10 / 数学找规律 8 / 位运算进制 4 / 计数统计 5 / 字符串 3
