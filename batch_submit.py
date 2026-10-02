@@ -130,7 +130,15 @@ def main():
         # （fio 文件名从 hydro 包 input.name 读，因「末尾数字才加下划线」导致不统一）
         base = fio_base(d)
         fopen = 'freopen("%s.in", "r", stdin);\n    freopen("%s.out", "w", stdout);' % (base, base)
-        source = source.replace('int main() {', 'int main() {\n    ' + fopen, 1)
+        # ⚠️ **不能写死 'int main() {'**：LLM 产出的标程写法不统一（`int main(){` 无空格、
+        # `int main(void)`、`int main ( )`…），字符串 replace 匹配不上就会**静默不注入
+        # freopen** ⇒ OJ 上 file_io 模式读不到数据 ⇒ RE。
+        # （2026-10-02 实测：全仓 132 题里就 1 题用了 `int main(){`，恰好中招。）
+        _m = re.search(r'int\s+main\s*\([^)]*\)\s*\{', source)
+        if _m:
+            source = source[:_m.end()] + '\n    ' + fopen + source[_m.end():]
+        else:
+            print('  [警告] %-28s 未匹配到 int main(...)，freopen 未注入' % name, flush=True)
         token = hustoj.init_csrf_token(session, host)
         if not token:
             fail += 1
