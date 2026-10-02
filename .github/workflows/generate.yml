@@ -252,17 +252,28 @@ jobs:
           if git diff --cached --quiet; then
             echo "tasks.yaml 无变化，跳过提交"
           else
-            git commit -m "chore(tasks): #${TASK_ID} 出题完成（${GEN_NAME}）"
-            # 并行调度下多个 job 会同时 push tasks.yaml —— 失败就 pull --rebase 重试。
-            # 不同 topic 改不同行，rebase 不会冲突。
+            # 并行出题时多个 job 会同时回写 tasks.yaml。
+            # ⚠️ **不能 rebase 旧 commit**：tasks.yaml 的题目是相邻行，改 J23 会让 J24
+            # 的 diff 上下文变化 ⇒ rebase 必冲突（2026-10-02 实测 5 个 job 挂在这）。
+            # 正确做法：拉最新 → **重新应用 mark-done**（幂等，重复跑无害）→ push。
             pushed=""
             for attempt in 1 2 3 4 5; do
-              if git push origin main; then pushed=1; break; fi
-              echo "push 失败（并发冲突？），pull --rebase 后重试（$attempt）"
-              git pull --rebase origin main
+              git fetch -q origin main && git reset --hard -q origin/main
+              python tasklist.py mark-done "$TASK_ID" --name "$GEN_NAME"
+              git add tasks.yaml
+              if git diff --cached --quiet; then
+                echo "已被其他 job 写入（或本就 done），无需重复提交"; pushed=1; break
+              fi
+              git commit -q -m "chore(tasks): #${TASK_ID} 出题完成（${GEN_NAME}）"
+              if git push -q origin main; then pushed=1; break; fi
+              echo "push 失败，重试（$attempt）"; sleep 3
             done
-            if [ -z "$pushed" ]; then echo "::error::push 连续失败"; exit 1; fi
-            echo "已回写 tasks.yaml 并推送" >> "$GITHUB_STEP_SUMMARY"
+            # 回写失败不算 job 失败：题目已出、artifact 已上传，可事后统一对账
+            if [ -z "$pushed" ]; then
+              echo "::warning::tasks.yaml 回写连续失败（题目已出、artifact 已传，可事后对账）"
+            else
+              echo "已回写 tasks.yaml 并推送" >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
 
       - name: Upload artifact
