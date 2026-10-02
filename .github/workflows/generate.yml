@@ -29,13 +29,12 @@ name: Generate Problem
 # · Ubuntu 26 将于 2026-10-19 迁移，g++ 版本会变，由 Verify toolchain 步骤兜住
 
 on:
-  # 定时自动出题（黄sir 2026-10-02 采纳）：每 5 分钟触发一次。
-  # 配合下方 concurrency 排队 ⇒ 队列永远不空，一题跑完立刻接下一题（无缝串行）。
-  # 一题约 5-8 分钟，所以实际是「连续出题」而不是「每 5 分钟一题」。
-  # 队列清空后每次触发只做「无 pending」检查即退出，无害。
-  # ⚠️ 出题跑完后如不想再被空触发，到 Actions 页面 Disable 本 workflow 即可。
-  schedule:
-    - cron: "*/5 * * * *"
+  # 定时自动出题：**默认关闭**（2026-10-02 黄sir 要求并行提速）。
+  # 理由：schedule 触发时没有 task_id，走 `tasklist.py next` 取「首个 pending」，
+  # 与「带 task_id 的并发 job」会**抢同一道题**。并行出题时用 run_j_batch.py --parallel
+  # 一次性带 task_id 触发多条；需要无人值守自动出题时再取消注释本段。
+  # schedule:
+  #   - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       task_id:
@@ -91,10 +90,12 @@ on:
         required: false
         default: ""
 
-# 同一时刻只允许一个出题 run：定时触发密集时其余自动排队（cancel-in-progress=false），
-# 避免多个 job 并发改 tasks.yaml 造成 rebase 冲突。
+# 并发控制：**按任务粒度**分 group —— 不同 task_id 互不阻塞（可并行出题），
+# 同一 task_id 重复触发才排队。这样并行出 N 题时各改 tasks.yaml 的不同行，
+# 配合 workflow 内已有的 `pull --rebase` 重试 ⇒ 无冲突（黄sir 2026-10-02：
+# 别再全局串行，太慢）。
 concurrency:
-  group: generate-problem
+  group: generate-${{ github.event.inputs.task_id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
