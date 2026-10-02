@@ -204,7 +204,7 @@ problems:
   - {id: "K19", topic: math, focus: "进制转换-任意进制互转", difficulty: 600, status: done, name: "math_600_251"}
   - {id: "K20", topic: math, focus: "二进制分解-按位拆分求和", difficulty: 700, status: done, name: "math_700_252"}
   - {id: "K21", topic: math, focus: "位运算性质-异或与或应用", difficulty: 800, status: pending, name: ""}
-  - {id: "K22", topic: math, focus: "位统计-二进制中1的个数", difficulty: 700, status: pending, name: ""}
+  - {id: "K22", topic: math, focus: "位统计-二进制中1的个数", difficulty: 700, status: done, name: "math_700_254"}
   - {id: "K23", topic: data_structure, focus: "频次统计-元素出现次数", difficulty: 500, status: pending, name: ""}
   - {id: "K24", topic: data_structure, focus: "桶计数-值域范围统计", difficulty: 600, status: pending, name: ""}
   - {id: "K25", topic: data_structure, focus: "条件计数-满足条件统计", difficulty: 700, status: pending, name: ""}
