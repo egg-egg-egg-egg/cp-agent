@@ -207,7 +207,7 @@ problems:
   - {id: "K22", topic: math, focus: "位统计-二进制中1的个数", difficulty: 700, status: done, name: "math_700_254"}
   - {id: "K23", topic: data_structure, focus: "频次统计-元素出现次数", difficulty: 500, status: done, name: "data_structure_500_255"}
   - {id: "K24", topic: data_structure, focus: "桶计数-值域范围统计", difficulty: 600, status: pending, name: ""}
-  - {id: "K25", topic: data_structure, focus: "条件计数-满足条件统计", difficulty: 700, status: pending, name: ""}
+  - {id: "K25", topic: data_structure, focus: "条件计数-满足条件统计", difficulty: 700, status: done, name: "data_structure_700_257"}
   - {id: "K26", topic: data_structure, focus: "区间计数-按范围分组统计", difficulty: 700, status: pending, name: ""}
   - {id: "K27", topic: data_structure, focus: "去重计数-不同元素个数", difficulty: 600, status: pending, name: ""}
   - {id: "K28", topic: string, focus: "字符统计-字符频次统计", difficulty: 500, status: done, name: "string_500_260"}
