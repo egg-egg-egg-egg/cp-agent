@@ -192,7 +192,7 @@ problems:
   - {id: "K07", topic: simulation, focus: "数组反复操作-多轮变换", difficulty: 800, status: done, name: "simulation_800_239"}
   - {id: "K08", topic: simulation, focus: "时间推进模拟-逐时刻更新", difficulty: 700, status: done, name: "simulation_700_240"}
   - {id: "K09", topic: simulation, focus: "分阶段流程模拟-多步骤串联", difficulty: 800, status: done, name: "simulation_800_241"}
-  - {id: "K10", topic: simulation, focus: "模拟+溢出边界-数值范围判断", difficulty: 800, status: pending, name: ""}
+  - {id: "K10", topic: simulation, focus: "模拟+溢出边界-数值范围判断", difficulty: 800, status: done, name: "simulation_800_242"}
   - {id: "K11", topic: math, focus: "找规律-数列求通项", difficulty: 600, status: done, name: "math_600_243"}
   - {id: "K12", topic: math, focus: "数学思维-取模循环问题", difficulty: 700, status: done, name: "math_700_244"}
   - {id: "K13", topic: math, focus: "分类讨论-按条件分情况", difficulty: 700, status: done, name: "math_700_245"}
