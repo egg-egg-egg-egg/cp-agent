@@ -178,6 +178,6 @@ problems:
   - {id: "J25", topic: binary_search, focus: "二分+数学-方程求解", difficulty: 1100, status: done, name: "binary_search_1100_227"}
   - {id: "J26", topic: bfs_dfs, focus: "网格BFS-最短步数", difficulty: 1000, status: pending, name: ""}
   - {id: "J27", topic: bfs_dfs, focus: "连通块-区域计数", difficulty: 800,  status: pending, name: ""}
-  - {id: "J28", topic: bfs_dfs, focus: "DFS回溯-方案枚举", difficulty: 1100, status: pending, name: ""}
+  - {id: "J28", topic: bfs_dfs, focus: "DFS回溯-方案枚举", difficulty: 1100, status: done, name: "bfs_dfs_1100_230"}
   - {id: "J29", topic: data_structure, focus: "栈应用-括号匹配校验", difficulty: 900,  status: pending, name: ""}
   - {id: "J30", topic: data_structure, focus: "桶排序-值域计数排序", difficulty: 700,  status: pending, name: ""}
