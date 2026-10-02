@@ -201,7 +201,7 @@ problems:
   - {id: "K16", topic: math, focus: "周期规律-求循环节", difficulty: 700, status: done, name: "math_700_248"}
   - {id: "K17", topic: math, focus: "简单计数原理-排列组合", difficulty: 800, status: done, name: "math_800_249"}
   - {id: "K18", topic: math, focus: "数值边界-精度与范围处理", difficulty: 600, status: done, name: "math_600_250"}
-  - {id: "K19", topic: math, focus: "进制转换-任意进制互转", difficulty: 600, status: pending, name: ""}
+  - {id: "K19", topic: math, focus: "进制转换-任意进制互转", difficulty: 600, status: done, name: "math_600_251"}
   - {id: "K20", topic: math, focus: "二进制分解-按位拆分求和", difficulty: 700, status: done, name: "math_700_252"}
   - {id: "K21", topic: math, focus: "位运算性质-异或与或应用", difficulty: 800, status: pending, name: ""}
   - {id: "K22", topic: math, focus: "位统计-二进制中1的个数", difficulty: 700, status: pending, name: ""}
