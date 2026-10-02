@@ -210,6 +210,6 @@ problems:
   - {id: "K25", topic: data_structure, focus: "条件计数-满足条件统计", difficulty: 700, status: pending, name: ""}
   - {id: "K26", topic: data_structure, focus: "区间计数-按范围分组统计", difficulty: 700, status: pending, name: ""}
   - {id: "K27", topic: data_structure, focus: "去重计数-不同元素个数", difficulty: 600, status: pending, name: ""}
-  - {id: "K28", topic: string, focus: "字符统计-字符频次统计", difficulty: 500, status: pending, name: ""}
+  - {id: "K28", topic: string, focus: "字符统计-字符频次统计", difficulty: 500, status: done, name: "string_500_260"}
   - {id: "K29", topic: string, focus: "字符串模拟-按规则变换", difficulty: 700, status: pending, name: ""}
   - {id: "K30", topic: string, focus: "子串统计-匹配出现次数", difficulty: 800, status: pending, name: ""}
