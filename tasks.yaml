@@ -212,4 +212,4 @@ problems:
   - {id: "K27", topic: data_structure, focus: "去重计数-不同元素个数", difficulty: 600, status: done, name: "data_structure_600_259"}
   - {id: "K28", topic: string, focus: "字符统计-字符频次统计", difficulty: 500, status: done, name: "string_500_260"}
   - {id: "K29", topic: string, focus: "字符串模拟-按规则变换", difficulty: 700, status: done, name: "string_700_261"}
-  - {id: "K30", topic: string, focus: "子串统计-匹配出现次数", difficulty: 800, status: pending, name: ""}
+  - {id: "K30", topic: string, focus: "子串统计-匹配出现次数", difficulty: 800, status: done, name: "string_800_262"}
